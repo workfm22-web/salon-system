@@ -49,6 +49,33 @@ export default function App() {
     }]);
     setNewAppointment({ customerId: '', serviceId: '', time: '' });
   };
+  // ✏️ Edit a customer
+  const handleEditCustomer = (id) => {
+    // 1. Find the customer we want to edit
+    const customer = customers.find(c => c.id === id);
+    
+    // 2. Ask user for new values (simple browser prompts)
+    const newName = prompt('Edit name:', customer.name);
+    const newPhone = prompt('Edit phone:', customer.phone);
+    
+    // 3. If user didn't cancel, update the state
+    if (newName && newPhone) {
+      setCustomers(customers.map(c => 
+        c.id === id ? { ...c, name: newName, phone: newPhone } : c
+      ));
+      // 🔌 Later: replace with Supabase call
+    }
+  };
+
+  // 🗑️ Delete a customer
+  const handleDeleteCustomer = (id) => {
+    // 1. Ask for confirmation (optional but recommended)
+    if (window.confirm('Delete this customer?')) {
+      // 2. Filter out the customer with this id
+      setCustomers(customers.filter(c => c.id !== id));
+      // 🔌 Later: replace with Supabase call
+    }
+  };
 
   const formatDate = (isoString) => {
     const date = new Date(isoString);
@@ -66,14 +93,45 @@ export default function App() {
         {/* 👥 Customers */}
         <div className="card">
           <h2>👥 Customers</h2>
-          {customers.length === 0 ? <p className="empty">No customers yet</p> : (
-            customers.map(c => (
-              <div key={c.id} className="list-item">
-                <span>{c.name}</span>
-                <span style={{ color: 'var(--text-light)' }}>{c.phone}</span>
-              </div>
-            ))
-          )}
+          {customers.map(c => (
+  <div key={c.id} className="list-item">
+    <div>
+      <strong>{c.name}</strong>
+      <div style={{ fontSize: '0.85rem', color: 'var(--text-light)' }}>{c.phone}</div>
+    </div>
+    <div style={{ display: 'flex', gap: '8px' }}>
+      <button 
+        onClick={() => handleEditCustomer(c.id)}
+        style={{ 
+          padding: '6px 12px', 
+          fontSize: '0.85rem', 
+          background: 'var(--warning)',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer'
+        }}
+      >
+        ✏️ Edit
+      </button>
+      <button 
+        onClick={() => handleDeleteCustomer(c.id)}
+        style={{ 
+          padding: '6px 12px', 
+          fontSize: '0.85rem', 
+          background: '#ef4444',
+          color: 'white',
+          border: 'none',
+          borderRadius: '6px',
+          cursor: 'pointer'
+        }}
+      >
+        🗑️ Delete
+      </button>
+    </div>
+  </div>
+))}
+          
           <form onSubmit={handleAddCustomer} style={{ marginTop: 15 }}>
             <div className="form-group">
               <label>Name</label>
