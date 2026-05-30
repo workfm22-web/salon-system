@@ -577,21 +577,87 @@ export default function App() {
 
               {/* Revenue Chart */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h3>📈 Revenue Trend ({chartPeriod === 'day' ? 'Last 14 Days' : chartPeriod === 'month' ? 'Last 12 Months' : 'Last 5 Years'})</h3>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '150px', marginTop: '1rem', overflowX: 'auto', paddingBottom: '8px' }}>
-                  {dashboardData.dateRange.map((k, i) => {
-                    const v = dashboardData.revData[k] || 0;
-                    const max = Math.max(...Object.values(dashboardData.revData), 1);
-                    const h = Math.max((v / max) * 100, v > 0 ? 5 : 0);
-                    const label = chartPeriod === 'day' ? k.slice(5) : chartPeriod === 'month' ? k.slice(5) : k;
-                    return (
-                      <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', minWidth: '40px' }}>
-                        <div style={{ width: '100%', height: `${h}%`, background: 'linear-gradient(to top, #3b82f6, #60a5fa)', borderRadius: '4px 4px 0 0', transition: 'height 0.3s' }}></div>
-                        <div style={{ fontSize: '0.65rem', color: '#64748b', transform: 'rotate(-45deg)', transformOrigin: 'top left', whiteSpace: 'nowrap' }}>{label}</div>
-                        {v > 0 && <div style={{ fontSize: '0.7rem', fontWeight: '600', color: '#3b82f6' }}>LKR {(v/1000).toFixed(1)}k</div>}
-                      </div>
-                    );
-                  })}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3>📈 Revenue Trend ({chartPeriod === 'day' ? 'Last 14 Days' : chartPeriod === 'month' ? 'Last 12 Months' : 'Last 5 Years'})</h3>
+                  <div style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: '600' }}>
+                    Total: LKR {Object.values(dashboardData.revData).reduce((a,b)=>a+b,0).toLocaleString()}
+                  </div>
+                </div>
+                
+                <div style={{ position: 'relative', height: '200px', marginTop: '1rem' }}>
+                  {/* Y-Axis Labels */}
+                  <div style={{ position: 'absolute', left: '0', top: '0', bottom: '30px', width: '50px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b' }}>
+                    {(() => {
+                      const max = Math.max(...Object.values(dashboardData.revData), 1000);
+                      return [1, 0.75, 0.5, 0.25, 0].map(pct => (
+                        <div key={pct} style={{ textAlign: 'right', paddingRight: '8px' }}>
+                          LKR {((max * pct) / 1000).toFixed(0)}k
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                  
+                  {/* Bars Container */}
+                  <div style={{ marginLeft: '55px', marginRight: '10px', height: '100%', display: 'flex', alignItems: 'flex-end', gap: '4px', paddingBottom: '30px' }}>
+                    {dashboardData.dateRange.map((k, i) => {
+                      const v = dashboardData.revData[k] || 0;
+                      const max = Math.max(...Object.values(dashboardData.revData), 1);
+                      const height = (v / max) * 100;
+                      const label = chartPeriod === 'day' ? k.slice(5) : chartPeriod === 'month' ? k.slice(5) : k;
+                      
+                      // Color gradient based on value
+                      const getColor = (val) => {
+                        if (val === 0) return '#cbd5e1';
+                        if (val < max * 0.33) return '#60a5fa';
+                        if (val < max * 0.66) return '#3b82f6';
+                        return '#2563eb';
+                      };
+                      
+                      return (
+                        <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', position: 'relative' }}>
+                          {/* Bar */}
+                          <div 
+                            style={{ 
+                              width: '100%', 
+                              height: `${height}%`, 
+                              background: `linear-gradient(to top, ${getColor(v)}, ${getColor(v).replace('2563eb', '60a5fa').replace('3b82f6', '93c5fd').replace('60a5fa', 'bfdbfe')})`,
+                              borderRadius: '4px 4px 0 0',
+                              transition: 'all 0.3s ease',
+                              boxShadow: v > 0 ? '0 -2px 8px rgba(59, 130, 246, 0.3)' : 'none',
+                              cursor: 'pointer'
+                            }}
+                            title={`LKR ${v.toLocaleString()}`}
+                          />
+                          {/* Label */}
+                          <div style={{ 
+                            position: 'absolute', 
+                            bottom: '-25px', 
+                            fontSize: '0.7rem', 
+                            color: '#64748b',
+                            transform: 'rotate(-45deg)',
+                            transformOrigin: 'top center',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'center'
+                          }}>
+                            {label}
+                          </div>
+                          {/* Value on top of bar */}
+                          {v > 0 && height > 10 && (
+                            <div style={{ 
+                              position: 'absolute', 
+                              top: '-20px', 
+                              fontSize: '0.65rem', 
+                              fontWeight: '600', 
+                              color: '#2563eb',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {(v/1000).toFixed(1)}k
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
