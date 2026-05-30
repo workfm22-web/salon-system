@@ -470,7 +470,7 @@ export default function App() {
 
               {/* Chart Area */}
               <div style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '1.5rem', background: '#fff', minHeight: '300px' }}>
-                <h3 style={{ marginBottom: '1rem' }}>📊 Financial Trend (Debug Mode)</h3>
+                <h3 style={{ marginBottom: '1rem' }}>📊 Financial Trend </h3>
                 
                 {/* Debug Info */}
                 <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', marginBottom: '20px', fontSize: '0.8rem', fontFamily: 'monospace' }}>
