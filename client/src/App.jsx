@@ -32,12 +32,11 @@ export default function App() {
   const [newService, setNewService] = useState({ name: '', price: '', duration: '', effective_from: new Date().toISOString().split('T')[0] });
   const [editingService, setEditingService] = useState(null);
 
-  // 💰 Opening Balances (Persisted in LocalStorage)
+  // 💰 Opening Balances (Saved to Browser)
   const [openingCash, setOpeningCash] = useState(() => parseFloat(localStorage.getItem('salon_opening_cash') || '0'));
   const [openingBank, setOpeningBank] = useState(() => parseFloat(localStorage.getItem('salon_opening_bank') || '0'));
-
-  useEffect(() => { localStorage.setItem('salon_opening_cash', openingCash); }, [openingCash]);
-  useEffect(() => { localStorage.setItem('salon_opening_bank', openingBank); }, [openingBank]);
+  useEffect(() => localStorage.setItem('salon_opening_cash', openingCash), [openingCash]);
+  useEffect(() => localStorage.setItem('salon_opening_bank', openingBank), [openingBank]);
 
   // 🛒 POS
   const [posForm, setPosForm] = useState({
@@ -94,7 +93,7 @@ export default function App() {
     finally { setIsLoading(false); }
   };
 
-  // 👤 Customers CRUD
+  // 👤 Customers
   const handleAddCustomer = async (e) => {
     e.preventDefault(); if (!newCustomer.name || !newCustomer.phone) return;
     setIsLoading(true);
@@ -125,13 +124,13 @@ export default function App() {
   const handleStatusChange = async (id, status) => {
     try { const apt = appointments.find(a => a.id === id); const { error } = await supabase.from('appointments').update({ status }).eq('id', id); if (error) throw error;
       if (status === 'completed' && apt?.price) {
-        if (!invoices.some(inv => inv.appointment_id === id)) await supabase.from('invoices').insert({ appointment_id: id, customer_name: apt.customer_name, service_name: apt.service_name, total_amount: apt.price, status: 'paid', items: JSON.stringify([{ service: apt.service_name, qty: 1, price: apt.price }]) });
+        if (!invoices.some(inv => inv.appointment_id === id)) await supabase.from('invoices').insert({ appointment_id: id, customer_name: apt.customer_name, service_name: apt.service_name, total_amount: apt.price, status: 'paid', items: JSON.stringify([{ service: apt.service_name, qty: 1, price: apt.price }]), payment_method: 'cash' });
       }
       await fetchData();
     } catch (err) { setError(err.message); }
   };
 
-  // ⚙️ Services CRUD
+  // ⚙️ Services
   const handleAddService = async (e) => {
     e.preventDefault(); if (!newService.name || !newService.price || !newService.duration) return setError('Name, price & duration required');
     setIsLoading(true);
@@ -164,12 +163,8 @@ export default function App() {
     setIsLoading(true);
     try {
       const { error } = await supabase.from('supplier_bills').insert({
-        supplier_name: finalName,
-        amount: Number(newBill.amount),
-        description: newBill.description,
-        bill_date: newBill.bill_date,
-        category: newBill.category,
-        payment_method: newBill.payment_method
+        supplier_name: finalName, amount: Number(newBill.amount), description: newBill.description,
+        bill_date: newBill.bill_date, category: newBill.category, payment_method: newBill.payment_method
       });
       if (error) throw error; await fetchData();
       setNewBill({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0], category: 'other', payment_method: 'cash' });
@@ -225,106 +220,87 @@ export default function App() {
       <div class="line"></div><p style="text-align:center;margin-top:15px;font-size:0.85rem">PAID • Thank you! ❤️</p><script>window.print();window.close()</script></body></html>`);
   };
 
-  // 📄 Print Financial Statement
-  const printFinancialStatement = () => {
-    const now = new Date();
-    const y = now.getFullYear().toString();
-    const m = (now.getMonth() + 1).toString().padStart(2, '0');
-    const d = now.getDate().toString().padStart(2, '0');
-    const revenue = invoices.filter(inv => {
-      if (inv.status !== 'paid' || !inv.issued_at) return false;
-      const [invY, invM, invD] = inv.issued_at.split('-');
-      if (reportPeriod === 'year' && invY === y) return true;
-      if (reportPeriod === 'month' && invY === y && invM === m) return true;
-      if (reportPeriod === 'day' && invY === y && invM === m && invD === d) return true;
-      return false;
-    }).reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
-    const materialCost = bills.filter(b => b.category === 'materials').reduce((s,b)=>s+Number(b.amount||0),0);
-    const labourCost = bills.filter(b => b.category === 'labour').reduce((s,b)=>s+Number(b.amount||0),0);
-    const otherExp = bills.filter(b=>!['materials','labour'].includes(b.category)).reduce((s,b)=>s+Number(b.amount||0),0);
-    const gross = revenue - materialCost - labourCost;
-    const net = gross - otherExp;
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Financial Statement</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px}h1{text-align:center;color:#1e3a8a;border-bottom:3px solid #1e3a8a;padding-bottom:10px}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9}.total{font-weight:bold;font-size:1.1em;background:#f8fafc;padding:10px;margin-top:10px}.net{background:#dcfce7;font-size:1.3em;font-weight:bold;padding:12px}@media print{body{margin:0}}</style></head><body>
-      <h1>✂️ Salon Manager<br/>Financial Statement</h1><p style="text-align:center;color:#64748b">${reportPeriod}: ${now.toLocaleDateString()}</p>
-      <div class="row"><span>Total Revenue</span><span>$${revenue.toFixed(2)}</span></div>
-      <div class="row"><span>Materials Cost</span><span>-$${materialCost.toFixed(2)}</span></div>
-      <div class="row"><span>Labour Cost</span><span>-$${labourCost.toFixed(2)}</span></div>
-      <div class="total"><span>Gross Profit</span><span>$${gross.toFixed(2)}</span></div>
-      <div class="row"><span>Other Expenses</span><span>-$${otherExp.toFixed(2)}</span></div>
-      <div class="net"><span>Net Profit</span><span>$${net.toFixed(2)}</span></div>
-      <script>window.print();window.close()</script></body></html>`);
-  };
-
-  // 📊 P&L Reports
+  // 📊 P&L
   const getPnL = () => {
-    const now = new Date();
-    const y = now.getFullYear().toString();
-    const m = (now.getMonth() + 1).toString().padStart(2, '0');
-    const d = now.getDate().toString().padStart(2, '0');
+    const now = new Date(); const y = now.getFullYear().toString(); const m = (now.getMonth()+1).toString().padStart(2,'0'); const d = now.getDate().toString().padStart(2,'0');
     const revenue = invoices.reduce((sum, inv) => {
-      if (inv.status !== 'paid' || !inv.issued_at) return sum;
-      const [invY, invM, invD] = inv.issued_at.split('-');
-      if (reportPeriod === 'year' && invY === y) return sum + Number(inv.total_amount || 0);
-      if (reportPeriod === 'month' && invY === y && invM === m) return sum + Number(inv.total_amount || 0);
-      if (reportPeriod === 'day' && invY === y && invM === m && invD === d) return sum + Number(inv.total_amount || 0);
+      if(inv.status!=='paid'||!inv.issued_at) return sum;
+      const [iY,iM,iD] = inv.issued_at.split('T')[0].split('-');
+      if(reportPeriod==='year'&&iY===y) return sum+Number(inv.total_amount||0);
+      if(reportPeriod==='month'&&iY===y&&iM===m) return sum+Number(inv.total_amount||0);
+      if(reportPeriod==='day'&&iY===y&&iM===m&&iD===d) return sum+Number(inv.total_amount||0);
       return sum;
     }, 0);
     const expenses = bills.reduce((sum, b) => {
-      if (!b.bill_date) return sum;
-      const [bY, bM, bD] = b.bill_date.split('-');
-      if (reportPeriod === 'year' && bY === y) return sum + Number(b.amount || 0);
-      if (reportPeriod === 'month' && bY === y && bM === m) return sum + Number(b.amount || 0);
-      if (reportPeriod === 'day' && bY === y && bM === m && bD === d) return sum + Number(b.amount || 0);
+      if(!b.bill_date) return sum;
+      const [bY,bM,bD] = b.bill_date.split('-');
+      if(reportPeriod==='year'&&bY===y) return sum+Number(b.amount||0);
+      if(reportPeriod==='month'&&bY===y&&bM===m) return sum+Number(b.amount||0);
+      if(reportPeriod==='day'&&bY===y&&bM===m&&bD===d) return sum+Number(b.amount||0);
       return sum;
     }, 0);
     return { revenue, expenses, profit: revenue - expenses };
   };
 
-  // 💵 Auto-Generate Cash Book & Bank Ledger
+  // 💵 AUTO-LEDGER LOGIC (Cash & Bank)
   const accountingData = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear().toString();
     const m = (now.getMonth() + 1).toString().padStart(2, '0');
     const d = now.getDate().toString().padStart(2, '0');
+
     const inPeriod = (dateStr) => {
       if (!dateStr) return false;
-      const [ty, tm, td] = dateStr.split('T')[0].split('-');
-      if (reportPeriod === 'year') return ty === y;
-      if (reportPeriod === 'month') return ty === y && tm === m;
-      if (reportPeriod === 'day') return ty === y && tm === m && td === d;
+      const dateOnly = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+      const [pY, pM, pD] = dateOnly.split('-');
+      if (reportPeriod === 'year') return pY === y;
+      if (reportPeriod === 'month') return pY === y && pM === m;
+      if (reportPeriod === 'day') return pY === y && pM === m && pD === d;
       return true;
     };
 
-    const processLedger = (paymentFilter, openingBalance) => {
-      let txns = [], totalIn = 0, totalOut = 0;
-      // Income (Invoices)
-      invoices.filter(inv => inv.status === 'paid' && inv.payment_method === paymentFilter && inPeriod(inv.issued_at)).forEach(inv => {
-        const amt = Number(inv.total_amount || 0);
-        totalIn += amt;
-        txns.push({ date: inv.issued_at.split('T')[0], desc: `INV #${inv.id} • ${inv.customer_name}`, amount: amt, type: 'income', ref: inv.id });
+    const buildLedger = (paymentTypes, opening) => {
+      let txns = [];
+      let totalIn = 0, totalOut = 0;
+
+      // Income: Invoices matching payment type
+      invoices.filter(inv => inv.status === 'paid' && inPeriod(inv.issued_at) && paymentTypes.includes(inv.payment_method))
+        .forEach(inv => {
+          const amt = Number(inv.total_amount || 0);
+          totalIn += amt;
+          txns.push({ date: inv.issued_at.split('T')[0], desc: `INV #${inv.id} • ${inv.customer_name}`, amount: amt, type: 'income' });
+        });
+
+      // Expenses: Bills matching payment type
+      bills.filter(b => inPeriod(b.bill_date) && paymentTypes.includes(b.payment_method))
+        .forEach(b => {
+          const amt = Number(b.amount || 0);
+          totalOut += amt;
+          txns.push({ date: b.bill_date, desc: `BILL • ${b.supplier_name} (${b.category})`, amount: amt, type: 'expense' });
+        });
+
+      // Sort chronologically
+      txns.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      // Running balance
+      let runBal = opening;
+      txns = txns.map(t => {
+        runBal += (t.type === 'income' ? t.amount : -t.amount);
+        return { ...t, balance: runBal };
       });
-      // Expenses (Bills)
-      bills.filter(b => b.payment_method === paymentFilter && inPeriod(b.bill_date)).forEach(b => {
-        const amt = Number(b.amount || 0);
-        totalOut += amt;
-        txns.push({ date: b.bill_date, desc: `BILL • ${b.supplier_name} (${b.category})`, amount: amt, type: 'expense', ref: b.id });
-      });
-      txns.sort((a,b) => new Date(a.date) - new Date(b.date));
-      let runBal = openingBalance;
-      txns = txns.map(t => { runBal += (t.type === 'income' ? t.amount : -t.amount); return { ...t, balance: runBal }; });
-      return { txns, totalIn, totalOut, closing: openingBalance + totalIn - totalOut };
+
+      return { txns, totalIn, totalOut, closing: runBal };
     };
 
     return {
-      cash: processLedger('cash', openingCash),
-      bank: processLedger('bank_transfer', openingBank)
+      cash: buildLedger(['cash'], openingCash),
+      bank: buildLedger(['card', 'transfer', 'bank_transfer', 'credit_card', 'debit_card'], openingBank)
     };
   }, [invoices, bills, reportPeriod, openingCash, openingBank]);
 
   const pnl = getPnL();
 
-  // 🔐 Login Screen
+  // 🔐 Login
   if (!session) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)' }}>
@@ -410,8 +386,8 @@ export default function App() {
                   {posForm.customerType === 'list' ? <select value={posForm.customerId} onChange={e => setPosForm({...posForm, customerId: e.target.value})} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Select</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select> : <input placeholder="Walk-in Name" value={posForm.walkinName} onChange={e => setPosForm({...posForm, walkinName: e.target.value})} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />}
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Payment</label>
-                  <select value={posForm.paymentMethod} onChange={e => setPosForm({...posForm, paymentMethod: e.target.value})} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="cash">💵 Cash</option><option value="card">💳 Card</option><option value="transfer">🏦 Transfer</option></select>
+                  <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Payment Method</label>
+                  <select value={posForm.paymentMethod} onChange={e => setPosForm({...posForm, paymentMethod: e.target.value})} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="cash">💵 Cash</option><option value="card">💳 Card</option><option value="transfer">🏦 Bank Transfer</option></select>
                 </div>
               </div>
               <div>
@@ -507,8 +483,7 @@ export default function App() {
             <h2>📦 Record Supplier Bill</h2>
             <form onSubmit={handleAddBill} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
               <select value={newBill.supplier_id || ''} onChange={e => setNewBill({...newBill, supplier_id: e.target.value, supplier_name: suppliers.find(s => s.id == e.target.value)?.name || ''})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                <option value="">Select Recurring</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                <option value="">Select Recurring</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               <input placeholder="Or type cash supplier" value={newBill.supplier_id ? '' : newBill.supplier_name} onChange={e => setNewBill({...newBill, supplier_name: e.target.value, supplier_id: ''})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
               <input type="tel" inputMode="numeric" placeholder="Amount ($)" value={newBill.amount} onChange={e => setNewBill({...newBill, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
@@ -517,7 +492,7 @@ export default function App() {
                 <option value="materials">📦 Materials</option><option value="labour">👷 Labour</option><option value="utilities">💡 Utilities</option><option value="rent">🏢 Rent</option><option value="other">📋 Other</option>
               </select>
               <select value={newBill.payment_method} onChange={e => setNewBill({...newBill, payment_method: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                <option value="cash">💵 Cash</option><option value="bank_transfer">🏦 Bank Transfer</option><option value="credit_card">💳 Credit Card</option><option value="debit_card">💳 Debit Card</option>
+                <option value="cash">💵 Cash</option><option value="bank_transfer">🏦 Bank Transfer</option><option value="credit_card">💳 Credit Card</option><option value="debit_card">💳 Debit Card</option><option value="card">💳 Card</option>
               </select>
               <input placeholder="Description (Optional)" value={newBill.description} onChange={e => setNewBill({...newBill, description: e.target.value})} style={{ gridColumn: '1 / -1', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
               <button type="submit" disabled={isLoading} style={{ gridColumn: '1 / -1', padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '📥 Add Bill'}</button>
@@ -528,61 +503,87 @@ export default function App() {
             </div>
           </div>}
 
-          {/* 💵 Cash Book (AUTO-LEDGER) */}
+          {/* 💵 Cash Book */}
           {activeTab === 'cashbook' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
             <h2>💵 Cash Book</h2>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', alignItems: 'center', background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', alignItems: 'center', background: '#f8fafc', padding: '10px', borderRadius: '8px', flexWrap: 'wrap' }}>
               <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Opening Balance ($):</label>
-              <input type="number" step="0.01" value={openingCash || ''} onChange={e => setOpeningCash(parseFloat(e.target.value || '0'))} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100px' }} />
+              <input type="number" step="0.01" value={openingCash || ''} onChange={e => setOpeningCash(parseFloat(e.target.value || '0'))} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '120px' }} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-              <div style={{ textAlign: 'center', background: '#f0fdf4', padding: '1rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#166534' }}>Cash In</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#15803d' }}>${accountingData.cash.totalIn.toFixed(2)}</div></div>
-              <div style={{ textAlign: 'center', background: '#fef2f2', padding: '1rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#991b1b' }}>Cash Out</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#b91c1c' }}>${accountingData.cash.totalOut.toFixed(2)}</div></div>
-              <div style={{ textAlign: 'center', background: '#eff6ff', padding: '1rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#1e40af' }}>Closing Balance</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#2563eb' }}>${accountingData.cash.closing.toFixed(2)}</div></div>
+              <div style={{ textAlign: 'center', background: '#f0fdf4', padding: '0.8rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#166534' }}>Total In</div><div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#15803d' }}>${accountingData.cash.totalIn.toFixed(2)}</div></div>
+              <div style={{ textAlign: 'center', background: '#fef2f2', padding: '0.8rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#991b1b' }}>Total Out</div><div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#b91c1c' }}>${accountingData.cash.totalOut.toFixed(2)}</div></div>
             </div>
-            <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-              {accountingData.cash.txns.length === 0 ? <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No cash transactions for this period.</div> :
-                accountingData.cash.txns.map(txn => (
-                  <div key={txn.ref} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-                    <div><strong>{txn.type === 'income' ? '📈' : '📉'} {txn.desc}</strong><div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(txn.date).toLocaleDateString()} • Ref #{txn.ref}</div></div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ fontWeight: '600', color: txn.type === 'income' ? '#10b981' : '#dc2626' }}>{txn.type === 'income' ? '+' : '-'}${txn.amount.toFixed(2)}</span>
-                      <div style={{ fontSize: '0.8rem', color: '#475569' }}>Bal: ${txn.balance.toFixed(2)}</div>
-                    </div>
-                  </div>
-                ))
-              }
+            <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <thead style={{ background: '#f1f5f9', position: 'sticky', top: 0 }}>
+                  <tr><th style={{ padding: '8px', textAlign: 'left' }}>Date</th><th style={{ padding: '8px', textAlign: 'left' }}>Description</th><th style={{ padding: '8px', textAlign: 'right' }}>Amount</th><th style={{ padding: '8px', textAlign: 'right' }}>Balance</th></tr>
+                </thead>
+                <tbody>
+                  {accountingData.cash.txns.length === 0 ? (
+                    <tr><td colSpan="4" style={{ padding: '1.5rem', textAlign: 'center', color: '#64748b' }}>No transactions for this period.</td></tr>
+                  ) : accountingData.cash.txns.map(txn => (
+                    <tr key={txn.date+txn.amount} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '8px' }}>{new Date(txn.date).toLocaleDateString()}</td>
+                      <td style={{ padding: '8px' }}>{txn.desc}</td>
+                      <td style={{ padding: '8px', textAlign: 'right', color: txn.type === 'income' ? '#10b981' : '#dc2626', fontWeight: '600' }}>
+                        {txn.type === 'income' ? '+' : '-'}${txn.amount.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>${txn.balance.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: '#eff6ff' }}>
+                    <td colSpan="3" style={{ padding: '12px', textAlign: 'right', fontWeight: '700' }}>Closing Balance:</td>
+                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: '800', color: '#1e40af' }}>${accountingData.cash.closing.toFixed(2)}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </div>}
 
-          {/* 🏦 Bank Ledger (AUTO-LEDGER) */}
+          {/* 🏦 Bank Ledger */}
           {activeTab === 'bank' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
             <h2>🏦 Bank & Card Ledger</h2>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', alignItems: 'center', background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', alignItems: 'center', background: '#f8fafc', padding: '10px', borderRadius: '8px', flexWrap: 'wrap' }}>
               <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Opening Balance ($):</label>
-              <input type="number" step="0.01" value={openingBank || ''} onChange={e => setOpeningBank(parseFloat(e.target.value || '0'))} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100px' }} />
+              <input type="number" step="0.01" value={openingBank || ''} onChange={e => setOpeningBank(parseFloat(e.target.value || '0'))} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '120px' }} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-              <div style={{ textAlign: 'center', background: '#f0fdf4', padding: '1rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#166534' }}>Bank In</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#15803d' }}>${accountingData.bank.totalIn.toFixed(2)}</div></div>
-              <div style={{ textAlign: 'center', background: '#fef2f2', padding: '1rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#991b1b' }}>Bank Out</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#b91c1c' }}>${accountingData.bank.totalOut.toFixed(2)}</div></div>
-              <div style={{ textAlign: 'center', background: '#eff6ff', padding: '1rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#1e40af' }}>Closing Balance</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#2563eb' }}>${accountingData.bank.closing.toFixed(2)}</div></div>
+              <div style={{ textAlign: 'center', background: '#f0fdf4', padding: '0.8rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#166534' }}>Total In</div><div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#15803d' }}>${accountingData.bank.totalIn.toFixed(2)}</div></div>
+              <div style={{ textAlign: 'center', background: '#fef2f2', padding: '0.8rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#991b1b' }}>Total Out</div><div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#b91c1c' }}>${accountingData.bank.totalOut.toFixed(2)}</div></div>
             </div>
-            <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-              {accountingData.bank.txns.length === 0 ? <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No bank/card transactions for this period.</div> :
-                accountingData.bank.txns.map(txn => (
-                  <div key={txn.ref} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-                    <div><strong>{txn.type === 'income' ? '📈' : '📉'} {txn.desc}</strong><div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(txn.date).toLocaleDateString()} • Ref #{txn.ref}</div></div>
-                    <div style={{ textAlign: 'right' }}>
-                      <span style={{ fontWeight: '600', color: txn.type === 'income' ? '#10b981' : '#dc2626' }}>{txn.type === 'income' ? '+' : '-'}${txn.amount.toFixed(2)}</span>
-                      <div style={{ fontSize: '0.8rem', color: '#475569' }}>Bal: ${txn.balance.toFixed(2)}</div>
-                    </div>
-                  </div>
-                ))
-              }
+            <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <thead style={{ background: '#f1f5f9', position: 'sticky', top: 0 }}>
+                  <tr><th style={{ padding: '8px', textAlign: 'left' }}>Date</th><th style={{ padding: '8px', textAlign: 'left' }}>Description</th><th style={{ padding: '8px', textAlign: 'right' }}>Amount</th><th style={{ padding: '8px', textAlign: 'right' }}>Balance</th></tr>
+                </thead>
+                <tbody>
+                  {accountingData.bank.txns.length === 0 ? (
+                    <tr><td colSpan="4" style={{ padding: '1.5rem', textAlign: 'center', color: '#64748b' }}>No transactions for this period.</td></tr>
+                  ) : accountingData.bank.txns.map(txn => (
+                    <tr key={txn.date+txn.amount} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '8px' }}>{new Date(txn.date).toLocaleDateString()}</td>
+                      <td style={{ padding: '8px' }}>{txn.desc}</td>
+                      <td style={{ padding: '8px', textAlign: 'right', color: txn.type === 'income' ? '#10b981' : '#dc2626', fontWeight: '600' }}>
+                        {txn.type === 'income' ? '+' : '-'}${txn.amount.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>${txn.balance.toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr style={{ background: '#eff6ff' }}>
+                    <td colSpan="3" style={{ padding: '12px', textAlign: 'right', fontWeight: '700' }}>Closing Balance:</td>
+                    <td style={{ padding: '12px', textAlign: 'right', fontWeight: '800', color: '#1e40af' }}>${accountingData.bank.closing.toFixed(2)}</td>
+                  </tr>
+                </tfoot>
+              </table>
             </div>
           </div>}
 
-          {/* 📄 Financial Statements */}
+          {/* 📄 Statements */}
           {activeTab === 'statements' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
               <h2>📄 Financial Statement</h2>
@@ -590,17 +591,17 @@ export default function App() {
                 <select value={reportPeriod} onChange={e => setReportPeriod(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                   <option value="day">Today</option><option value="month">This Month</option><option value="year">This Year</option>
                 </select>
-                <button onClick={printFinancialStatement} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>🖨️ Print Statement</button>
+                <button onClick={() => window.print()} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>🖨️ Print</button>
               </div>
             </div>
             <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'grid', gap: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#fff', borderRadius: '6px' }}><span>📈 Total Revenue (Invoices)</span><strong style={{ color: '#10b981' }}>${pnl.revenue.toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#fff', borderRadius: '6px' }}><span>📦 Materials Cost</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#fff', borderRadius: '6px' }}><span>👷 Labour Cost</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f0fdf4', borderRadius: '6px', fontWeight: 'bold' }}><span>💰 Gross Profit</span><strong style={{ color: '#15803d' }}>${(pnl.revenue - bills.filter(b => ['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#fff', borderRadius: '6px' }}><span>📋 Other Expenses</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => !['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px', background: pnl.profit >= 0 ? '#dcfce7' : '#fee2e2', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span>🎯 Net Profit</span><strong style={{ color: pnl.profit >= 0 ? '#166534' : '#991b1b' }}>${pnl.profit.toFixed(2)}</strong></div>
+              <div style={{ display: 'grid', gap: '0.8rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📈 Revenue</span><strong style={{ color: '#10b981' }}>${pnl.revenue.toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📦 Materials</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>👷 Labour</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f0fdf4', borderRadius: '6px', fontWeight: 'bold' }}><span>💰 Gross Profit</span><strong style={{ color: '#15803d' }}>${(pnl.revenue - bills.filter(b => ['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📋 Other</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => !['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: pnl.profit >= 0 ? '#dcfce7' : '#fee2e2', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span>🎯 Net Profit</span><strong style={{ color: pnl.profit >= 0 ? '#166534' : '#991b1b' }}>${pnl.profit.toFixed(2)}</strong></div>
               </div>
             </div>
           </div>}
