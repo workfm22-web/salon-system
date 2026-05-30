@@ -500,16 +500,6 @@ export default function App() {
                     );
                   })}
                 </div>
-                
-                {/* Summary Stats */}
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '1.5rem', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Net Profit</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: (dashboardData.revTotal - dashboardData.expTotal) >= 0 ? '#10b981' : '#ef4444' }}>
-                      LKR {((dashboardData.revTotal || 0) - (dashboardData.expTotal || 0)).toLocaleString()}
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
           )}
