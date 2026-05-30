@@ -401,7 +401,7 @@ export default function App() {
       bank: bankLedger 
     };
   }, [invoices, bills, ledgerFrom, ledgerTo, openingCash, openingBank, cashOpenDate, bankOpenDate]);
-  
+
   // 📊 Dashboard Data
   const dashboardData = useMemo(() => {
     const now = new Date();
@@ -831,7 +831,9 @@ export default function App() {
                     {expenseTypes.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                   </select>
                   <select value={newBill.payment_method} onChange={e => setNewBill({...newBill, payment_method: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                    <option value="cash">💵 Cash</option><option value="bank_transfer">🏦 Bank</option><option value="credit_card">💳 Credit</option><option value="debit_card">💳 Debit</option><option value="card">💳 Card</option>
+                    <option value="cash">💵 Cash</option>
+                    <option value="card">💳 Card</option>
+                    <option value="bank_transfer">🏦 Bank Transfer</option>
                   </select>
                   <input placeholder="Description" value={newBill.description} onChange={e => setNewBill({...newBill, description: e.target.value})} style={{ gridColumn: '1 / -1', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   <button type="submit" disabled={isLoading} style={{ gridColumn: '1 / -1', padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '📥 Add Bill'}</button>
