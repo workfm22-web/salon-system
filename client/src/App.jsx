@@ -3,11 +3,12 @@ import { supabase } from './supabaseClient';
 
 // 🏢 SALON CONFIGURATION - Edit these values directly
 const SALON_CONFIG = {
-  name: 'Your Salon Name',
-  address: '123 Main Street, City, Country',
-  telephone: '+1 234 567 8900',
-  salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/salon-images/salon-logo.png',
-  bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/salon-images/bizhub-logo.png'
+  name: 'Saloon Enoka',
+  address: '251/8, Kirula Road, Colombo 5',
+  telephone: '+94 112 369 777',
+  //  Replace these with your actual Supabase Storage public URLs
+  salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/Enoka%20logo.jpg',
+  bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png'
 };
 
 export default function App() {
