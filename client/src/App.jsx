@@ -32,11 +32,11 @@ export default function App() {
   const [currentTime, setCurrentTime] = useState(new Date());
   useEffect(() => { const t = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(t); }, []);
 
-  //  State
+  // 📊 State
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [chartPeriod, setChartPeriod] = useState('month'); // today, month, year
+  const [chartPeriod, setChartPeriod] = useState('month');
 
   // 📦 Data
   const [customers, setCustomers] = useState([]);
@@ -288,13 +288,13 @@ export default function App() {
     const c = customers.find(x => x.id == cid);
     if (!c || c.loyalty_points < pts) return setError('Insufficient points');
     setPosForm({ ...posForm, items: posForm.items.map((it, i) => i === 0 ? { ...it, adjustment: -pts } : it) });
-    setError(`✅ Redeemed ${pts} points ($${pts} off)`);
+    setError(`✅ Redeemed ${pts} points (LKR ${pts} off)`);
   };
 
   const printInvoice = (inv) => {
     const items = typeof inv.items === 'string' ? JSON.parse(inv.items) : (inv.items || []);
     const w = window.open('', '_blank');
-    w.document.write(`<!DOCTYPE html><html><head><title>Invoice #${inv.id}</title><style>body{font-family:monospace;width:320px;margin:0 auto;padding:10px}h1,h3{text-align:center;margin:5px 0}.line{border-top:1px dashed #000;margin:8px 0}.row{display:flex;justify-content:space-between;margin:4px 0;font-size:0.9rem}.total{font-weight:bold;font-size:1.2rem;margin-top:8px;text-align:right}@media print{body{margin:0}}</style></head><body><h1>${salonName}</h1><h3>Invoice #${inv.id}</h3><div class="row"><span>Date:</span><span>${new Date(inv.issued_at).toLocaleDateString()}</span></div><div class="row"><span>Customer:</span><span>${inv.customer_name}</span></div><div class="line"></div>${items.map(i => `<div class="row"><span>${i.qty}x ${i.service}</span><span>$${((i.price*i.qty)-(i.discount||0)+(i.adjustment||0)).toFixed(2)}</span></div>`).join('')}<div class="line"></div><div class="row"><span>Total:</span><span>$${inv.total_amount.toFixed(2)}</span></div>${inv.payment_method==='cash'?`<div class="row"><span>Cash:</span><span>$${inv.amount_tendered?.toFixed(2)||'0.00'}</span></div><div class="total"><span>Change:</span><span>$${inv.change_amount?.toFixed(2)||'0.00'}</span></div>`:`<div class="row"><span>Method:</span><span>${inv.payment_method.toUpperCase()}</span></div>`}<div class="line"></div><p style="text-align:center;margin-top:15px;font-size:0.85rem">PAID • Thank you! ❤️</p><script>window.print();window.close()</script></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>Invoice #${inv.id}</title><style>body{font-family:monospace;width:320px;margin:0 auto;padding:10px}h1,h3{text-align:center;margin:5px 0}.line{border-top:1px dashed #000;margin:8px 0}.row{display:flex;justify-content:space-between;margin:4px 0;font-size:0.9rem}.total{font-weight:bold;font-size:1.2rem;margin-top:8px;text-align:right}@media print{body{margin:0}}</style></head><body><h1>${salonName}</h1><h3>Invoice #${inv.id}</h3><div class="row"><span>Date:</span><span>${new Date(inv.issued_at).toLocaleDateString()}</span></div><div class="row"><span>Customer:</span><span>${inv.customer_name}</span></div><div class="line"></div>${items.map(i => `<div class="row"><span>${i.qty}x ${i.service}</span><span>LKR ${((i.price*i.qty)-(i.discount||0)+(i.adjustment||0)).toFixed(2)}</span></div>`).join('')}<div class="line"></div><div class="row"><span>Total:</span><span>LKR ${inv.total_amount.toFixed(2)}</span></div>${inv.payment_method==='cash'?`<div class="row"><span>Cash:</span><span>LKR ${inv.amount_tendered?.toFixed(2)||'0.00'}</span></div><div class="total"><span>Change:</span><span>LKR ${inv.change_amount?.toFixed(2)||'0.00'}</span></div>`:`<div class="row"><span>Method:</span><span>${inv.payment_method.toUpperCase()}</span></div>`}<div class="line"></div><p style="text-align:center;margin-top:15px;font-size:0.85rem">PAID • Thank you! ❤️</p><script>window.print();window.close()</script></body></html>`);
   };
 
   const printLedger = (type) => {
@@ -303,7 +303,7 @@ export default function App() {
     const openDate = type === 'cash' ? cashOpenDate : bankOpenDate;
     const title = type === 'cash' ? 'Cash Book' : 'Bank & Card Ledger';
     const w = window.open('', '_blank');
-    w.document.write(`<!DOCTYPE html><html><head><title>${title} ${ledgerFrom} to ${ledgerTo}</title><style>body{font-family:Arial,sans-serif;margin:40px auto;padding:20px;max-width:800px}h1{text-align:center;color:#1e3a8a;border-bottom:2px solid #1e3a8a;padding-bottom:10px}.meta{display:flex;justify-content:space-between;margin-bottom:20px;font-size:0.9rem;color:#64748b}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#f8fafc;font-weight:600}tfoot td{font-weight:bold;background:#f0f9ff}.inc{color:#10b981}.exp{color:#dc2626}@media print{body{margin:0}}</style></head><body><h1>${salonName}</h1><p style="text-align:center;font-size:1.1rem">${title} Statement</p><div class="meta"><span>Period: ${ledgerFrom} to ${ledgerTo}</span><span>Opening Balance: $${openBal.toFixed(2)} (as of ${openDate})</span></div><table><thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Balance</th></tr></thead><tbody>${data.txns.map(t => `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.desc}</td><td class="${t.type==='income'?'inc':'exp'}">${t.type==='income'?'+':t.type==='opening'?'🏦':'-'}$${Math.abs(t.amount).toFixed(2)}</td><td>$${t.balance.toFixed(2)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="3" style="text-align:right">Closing Balance:</td><td>$${data.closing.toFixed(2)}</td></tr></tfoot></table><p style="text-align:center;margin-top:30px;font-size:0.8rem;color:#94a3b8">Generated: ${new Date().toLocaleString()}</p><script>window.print();window.close()</script></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>${title} ${ledgerFrom} to ${ledgerTo}</title><style>body{font-family:Arial,sans-serif;margin:40px auto;padding:20px;max-width:800px}h1{text-align:center;color:#1e3a8a;border-bottom:2px solid #1e3a8a;padding-bottom:10px}.meta{display:flex;justify-content:space-between;margin-bottom:20px;font-size:0.9rem;color:#64748b}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#f8fafc;font-weight:600}tfoot td{font-weight:bold;background:#f0f9ff}.inc{color:#10b981}.exp{color:#dc2626}@media print{body{margin:0}}</style></head><body><h1>${salonName}</h1><p style="text-align:center;font-size:1.1rem">${title} Statement</p><div class="meta"><span>Period: ${ledgerFrom} to ${ledgerTo}</span><span>Opening Balance: LKR ${openBal.toFixed(2)} (as of ${openDate})</span></div><table><thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Balance</th></tr></thead><tbody>${data.txns.map(t => `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.desc}</td><td class="${t.type==='income'?'inc':'exp'}">${t.type==='income'?'+':t.type==='opening'?'🏦':'-'}LKR ${Math.abs(t.amount).toFixed(2)}</td><td>LKR ${t.balance.toFixed(2)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="3" style="text-align:right">Closing Balance:</td><td>LKR ${data.closing.toFixed(2)}</td></tr></tfoot></table><p style="text-align:center;margin-top:30px;font-size:0.8rem;color:#94a3b8">Generated: ${new Date().toLocaleString()}</p><script>window.print();window.close()</script></body></html>`);
   };
 
   // 💵 Ledger Data
@@ -406,7 +406,7 @@ export default function App() {
       </div>
       
       <div className="main-container" style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', fontFamily: 'system-ui' }}>
-        {error && <div style={{ background: '#fef2f2', color: '#991b1b', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>️ {error}</div>}
+        {error && <div style={{ background: '#fef2f2', color: '#991b1b', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>⚠️ {error}</div>}
         {isLoading && <div style={{ textAlign: 'center', padding: '10px', color: '#64748b' }}>⏳ Syncing...</div>}
         
         <nav className="nav-tabs" style={{ display: 'flex', gap: '6px', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', overflowX: 'auto' }}>
@@ -429,12 +429,12 @@ export default function App() {
                 </div>
                 <div style={{ background: '#eff6ff', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
                   <div style={{ fontSize: '2rem' }}>💵</div>
-                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#2563eb' }}>${dashboardData.revData[dashboardData.period === 'day' ? 'Today' : Object.keys(dashboardData.revData).pop()]?.toFixed(0) || '0'}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#2563eb' }}>LKR {dashboardData.revData[dashboardData.period === 'day' ? 'Today' : Object.keys(dashboardData.revData).pop()]?.toFixed(0) || '0'}</div>
                   <div style={{ fontSize: '0.9rem', color: '#1e40af' }}>{dashboardData.period === 'day' ? 'Today' : dashboardData.period === 'month' ? 'This Month' : 'This Year'} Revenue</div>
                 </div>
                 <div style={{ background: '#fef2f2', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
                   <div style={{ fontSize: '2rem' }}>📉</div>
-                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#dc2626' }}>${dashboardData.expData[dashboardData.period === 'day' ? 'Today' : Object.keys(dashboardData.expData).pop()]?.toFixed(0) || '0'}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#dc2626' }}>LKR {dashboardData.expData[dashboardData.period === 'day' ? 'Today' : Object.keys(dashboardData.expData).pop()]?.toFixed(0) || '0'}</div>
                   <div style={{ fontSize: '0.9rem', color: '#991b1b' }}>{dashboardData.period === 'day' ? 'Today' : dashboardData.period === 'month' ? 'This Month' : 'This Year'} Expenses</div>
                 </div>
               </div>
@@ -456,7 +456,7 @@ export default function App() {
                       <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                         <div style={{ width: '100%', height: `${h}%`, background: 'linear-gradient(to top, #3b82f6, #60a5fa)', borderRadius: '4px 4px 0 0', minWidth: '30px' }}></div>
                         <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{k}</div>
-                        <div style={{ fontSize: '0.75rem', fontWeight: '600' }}>${(v/1000).toFixed(1)}k</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: '600' }}>LKR {(v/1000).toFixed(1)}k</div>
                       </div>
                     );
                   })}
@@ -496,7 +496,7 @@ export default function App() {
                   {['materials', 'labour', 'utilities', 'rent', 'marketing', 'other'].map((c, i) => {
                     const val = bills.filter(b => b.category === c).reduce((s,b) => s + Number(b.amount||0), 0);
                     if (val === 0) return null;
-                    return <span key={c} style={{ fontSize: '0.8rem', color: '#64748b' }}><span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#6b7280'][i], marginRight: '4px' }}></span>{c}: ${val.toFixed(0)}</span>;
+                    return <span key={c} style={{ fontSize: '0.8rem', color: '#64748b' }}><span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#6b7280'][i], marginRight: '4px' }}></span>{c}: LKR {val.toFixed(0)}</span>;
                   })}
                 </div>
               </div>
@@ -506,6 +506,7 @@ export default function App() {
           {/* 👥 Booking & Customers */}
           {activeTab === 'bookings' && (
             <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+              {/* Customer Add & Search */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                 <h2>👥 Add Customer</h2>
                 <form onSubmit={handleAddCustomer} style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
@@ -522,12 +523,12 @@ export default function App() {
                   <button type="submit" disabled={isLoading} style={{ padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '+ Add Customer'}</button>
                 </form>
                 
-                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}> Add Booking</h3>
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>📅 Add Booking</h3>
                 <form onSubmit={handleBookAppointment} style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
                   <select value={newAppointment.customerId} onChange={e => setNewAppointment({...newAppointment, customerId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-                  <select value={newAppointment.serviceId} onChange={e => setNewAppointment({...newAppointment, serviceId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (${s.price})</option>)}</select>
+                  <select value={newAppointment.serviceId} onChange={e => setNewAppointment({...newAppointment, serviceId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (LKR {s.price})</option>)}</select>
                   <input type="datetime-local" value={newAppointment.time} onChange={e => setNewAppointment({...newAppointment, time: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                  <button type="submit" disabled={isLoading || !services.length} style={{ padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>✅ Book</button>
+                  <button type="submit" disabled={isLoading || !services.length} style={{ padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>✅ Book Appointment</button>
                 </form>
 
                 <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>🔍 Search Customers</h3>
@@ -539,15 +540,16 @@ export default function App() {
                     <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
                       <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{c.name}</strong><div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>{c.phone} {c.gender ? `• ${c.gender}` : ''} {c.age ? `• ${c.age}y` : ''}{c.loyalty_points > 0 && ` • ⭐${c.loyalty_points}`}</div></div>
                       <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
-                        {c.loyalty_points > 0 && <button onClick={() => setShowLoyaltyCard(c)} style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.75rem' }}>🎴</button>}
-                        <button onClick={() => handleEditCustomer(c.id)} style={{ background: '#fff', color: '#d97706', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>✏️</button>
-                        <button onClick={() => handleDeleteCustomer(c.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>🗑️</button>
+                        {c.loyalty_points > 0 && <button onClick={() => setShowLoyaltyCard(c)} style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.75rem' }}>🎴 View Card</button>}
+                        <button onClick={() => handleEditCustomer(c.id)} style={{ background: '#fff', color: '#d97706', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>✏️ Edit</button>
+                        <button onClick={() => handleDeleteCustomer(c.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>🗑️ Delete</button>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
+              {/* Blockouts & Bookings List */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                 <h2>🚫 Block Dates/Hours</h2>
                 <form onSubmit={e => { e.preventDefault(); handleAddBlockout(); }} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
@@ -556,25 +558,25 @@ export default function App() {
                   <span style={{ alignSelf: 'center' }}>-</span>
                   <input type="time" value={newBlockout.endTime} onChange={e => setNewBlockout({...newBlockout, endTime: e.target.value})} style={{ width: '80px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   <input placeholder="Reason" value={newBlockout.reason} onChange={e => setNewBlockout({...newBlockout, reason: e.target.value})} style={{ flex: 1, minWidth: '100px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                  <button type="submit" style={{ padding: '8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Block</button>
+                  <button type="submit" style={{ padding: '8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🚫 Block Time</button>
                 </form>
                 <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
                   {blockouts.map(b => (
                     <div key={b.date+b.startTime} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
                       <div><strong>{new Date(b.date).toLocaleDateString()}</strong> {b.startTime} - {b.endTime} • {b.reason || 'Blocked'}</div>
-                      <button onClick={() => handleRemoveBlockout(b.date+b.startTime)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>✕</button>
+                      <button onClick={() => handleRemoveBlockout(b.date+b.startTime)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>✕ Remove</button>
                     </div>
                   ))}
                 </div>
 
-                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>📅 Bookings ({appointments.length})</h3>
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>📅 All Bookings ({appointments.length})</h3>
                 <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
                   <input placeholder="🔍 Filter bookings..." value={bookingsFilter} onChange={e => setBookingsFilter(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   {appointments.filter(a => a.customer_name?.toLowerCase().includes(bookingsFilter.toLowerCase()) || a.service_name?.toLowerCase().includes(bookingsFilter.toLowerCase())).map(a => (
                     <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
                       <div><strong>{a.customer_name}</strong> • {a.service_name}<div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(a.time).toLocaleString()}</div></div>
                       <div style={{ display: 'flex', gap: '6px' }}>
-                        {a.status === 'booked' && <button onClick={() => loadBookingToPOS(a)} style={{ padding: '4px 8px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>💳 Invoice</button>}
+                        {a.status === 'booked' && <button onClick={() => loadBookingToPOS(a)} style={{ padding: '4px 8px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>💳 Create Invoice</button>}
                         <select value={a.status} onChange={e => handleStatusChange(a.id, e.target.value)} style={{ padding: '4px', borderRadius: '12px', border: 'none', fontWeight: '600', fontSize: '0.75rem', background: a.status==='booked'?'#dbeafe':a.status==='completed'?'#dcfce7':'#fee2e2', color: a.status==='booked'?'#1d4ed8':a.status==='completed'?'#166534':'#991b1b' }}>
                           <option value="booked">BOOKED</option><option value="completed">COMPLETED</option><option value="cancelled">CANCELLED</option>
                         </select>
@@ -598,7 +600,7 @@ export default function App() {
                       {upcomingBookings.slice(0, 5).map(b => (
                         <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', background: '#fff', borderRadius: '6px' }}>
                           <div style={{ fontSize: '0.9rem' }}><strong>{b.customer_name}</strong> • {b.service_name}<div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(b.time).toLocaleString()}</div></div>
-                          <button onClick={() => loadBookingToPOS(b)} style={{ padding: '4px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Select</button>
+                          <button onClick={() => loadBookingToPOS(b)} style={{ padding: '4px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Select Booking</button>
                         </div>
                       ))}
                     </div>
@@ -607,7 +609,7 @@ export default function App() {
                 {selectedBooking && (
                   <div style={{ marginBottom: '1rem', padding: '10px', background: '#dcfce7', borderRadius: '8px', border: '1px solid #86efac', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div><strong>📅 Booking:</strong> {selectedBooking.customer_name} - {selectedBooking.service_name}</div>
-                    <button onClick={clearBookingSelection} style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕ Clear</button>
+                    <button onClick={clearBookingSelection} style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕ Clear Selection</button>
                   </div>
                 )}
                 <form onSubmit={handleCreateInvoice} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -615,24 +617,24 @@ export default function App() {
                     <div>
                       <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Customer</label>
                       <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
-                        <button type="button" onClick={() => setPosForm({...posForm, customerType: 'list'})} style={{ flex: 1, padding: '6px', background: posForm.customerType==='list'?'#3b82f6':'#e2e8f0', color: posForm.customerType==='list'?'#fff':'#333', border:'none', borderRadius:'6px 0 0 6px', cursor:'pointer' }}>List</button>
+                        <button type="button" onClick={() => setPosForm({...posForm, customerType: 'list'})} style={{ flex: 1, padding: '6px', background: posForm.customerType==='list'?'#3b82f6':'#e2e8f0', color: posForm.customerType==='list'?'#fff':'#333', border:'none', borderRadius:'6px 0 0 6px', cursor:'pointer' }}>From List</button>
                         <button type="button" onClick={() => setPosForm({...posForm, customerType: 'walkin'})} style={{ flex: 1, padding: '6px', background: posForm.customerType==='walkin'?'#3b82f6':'#e2e8f0', color: posForm.customerType==='walkin'?'#fff':'#333', border:'none', borderRadius:'0 6px 6px 0', cursor:'pointer' }}>Walk-in</button>
                       </div>
                       {posForm.customerType === 'list' ? (
                         <>
-                          <select value={posForm.customerId} onChange={e => { setPosForm({...posForm, customerId: e.target.value}); if(showLoyaltyCard) setShowLoyaltyCard(null); }} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Select</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name} (${c.loyalty_points||0} pts)</option>)}</select>
+                          <select value={posForm.customerId} onChange={e => { setPosForm({...posForm, customerId: e.target.value}); if(showLoyaltyCard) setShowLoyaltyCard(null); }} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Select Customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.loyalty_points||0} pts)</option>)}</select>
                           {posForm.customerId && customers.find(c => c.id == posForm.customerId)?.loyalty_points > 0 && (
                             <div style={{ marginTop: '6px', display: 'flex', gap: '4px', alignItems: 'center' }}>
                               <span style={{ fontSize: '0.8rem', color: '#7c3aed' }}>⭐ {customers.find(c => c.id == posForm.customerId)?.loyalty_points} pts</span>
-                              <button type="button" onClick={() => redeemLoyalty(posForm.customerId, Math.floor(posForm.customerId ? customers.find(c => c.id == posForm.customerId).loyalty_points : 0))} style={{ padding: '4px 8px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Redeem</button>
+                              <button type="button" onClick={() => redeemLoyalty(posForm.customerId, Math.floor(posForm.customerId ? customers.find(c => c.id == posForm.customerId).loyalty_points : 0))} style={{ padding: '4px 8px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Redeem Points</button>
                             </div>
                           )}
                         </>
                       ) : <input placeholder="Walk-in Name" value={posForm.walkinName} onChange={e => setPosForm({...posForm, walkinName: e.target.value})} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />}
                     </div>
                     <div>
-                      <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Payment</label>
-                      <select value={posForm.paymentMethod} onChange={e => setPosForm({...posForm, paymentMethod: e.target.value})} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="cash">💵 Cash</option><option value="card">💳 Card</option><option value="transfer">🏦 Transfer</option></select>
+                      <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Payment Method</label>
+                      <select value={posForm.paymentMethod} onChange={e => setPosForm({...posForm, paymentMethod: e.target.value})} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="cash">💵 Cash</option><option value="card">💳 Card</option><option value="transfer">🏦 Bank Transfer</option></select>
                     </div>
                   </div>
                   <div>
@@ -645,37 +647,37 @@ export default function App() {
                       return (
                         <div key={idx} style={{ background: '#f8fafc', padding: '8px', borderRadius: '6px', marginBottom: '8px' }}>
                           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '8px', marginBottom: '6px' }}>
-                            <select value={item.serviceId} onChange={e => updateItem(idx, 'serviceId', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (${s.price})</option>)}</select>
+                            <select value={item.serviceId} onChange={e => updateItem(idx, 'serviceId', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Select Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (LKR {s.price})</option>)}</select>
                             <input type="tel" inputMode="numeric" placeholder="Qty" value={item.qty} onChange={e => updateItem(idx, 'qty', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                            <button type="button" onClick={() => removeItemLine(idx)} style={{ padding: '8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🗑️</button>
+                            <button type="button" onClick={() => removeItemLine(idx)} style={{ padding: '8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🗑️ Remove</button>
                           </div>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                             <input type="tel" inputMode="numeric" placeholder="Discount (-)" value={item.discount || ''} onChange={e => updateItem(idx, 'discount', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', color: disc > 0 ? '#dc2626' : 'inherit' }} />
                             <input type="tel" inputMode="numeric" placeholder="Adjustment (+)" value={item.adjustment || ''} onChange={e => updateItem(idx, 'adjustment', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', color: adj > 0 ? '#10b981' : 'inherit' }} />
                           </div>
-                          <div style={{ textAlign: 'right', marginTop: '4px', fontSize: '0.85rem', fontWeight: '600' }}>Line Total: ${Math.max(0, base - disc + adj).toFixed(2)}</div>
+                          <div style={{ textAlign: 'right', marginTop: '4px', fontSize: '0.85rem', fontWeight: '600' }}>Line Total: LKR {Math.max(0, base - disc + adj).toFixed(2)}</div>
                         </div>
                       );
                     })}
-                    <button type="button" onClick={addItemLine} style={{ marginTop: '8px', padding: '6px 12px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>+ Add Line</button>
+                    <button type="button" onClick={addItemLine} style={{ marginTop: '8px', padding: '6px 12px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>+ Add Service Line</button>
                   </div>
                   <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '1.1rem', fontWeight: '700' }}><span>Total:</span><strong>${posSubtotal.toFixed(2)}</strong></div>
-                    {posForm.paymentMethod === 'cash' && <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><input type="tel" inputMode="numeric" placeholder="Cash Tendered" value={posForm.amountTendered} onChange={e => setPosForm({...posForm, amountTendered: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} /><div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem' }}>Change Due</div><strong style={{ fontSize: '1.2rem', color: posChange >= 0 ? '#166534' : '#dc2626' }}>${posChange.toFixed(2)}</strong></div></div>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '1.1rem', fontWeight: '700' }}><span>Total Amount:</span><strong>LKR {posSubtotal.toFixed(2)}</strong></div>
+                    {posForm.paymentMethod === 'cash' && <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><input type="tel" inputMode="numeric" placeholder="Cash Tendered" value={posForm.amountTendered} onChange={e => setPosForm({...posForm, amountTendered: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} /><div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem' }}>Change Due</div><strong style={{ fontSize: '1.2rem', color: posChange >= 0 ? '#166534' : '#dc2626' }}>LKR {posChange.toFixed(2)}</strong></div></div>}
                   </div>
-                  <button type="submit" disabled={isLoading || posSubtotal === 0} style={{ padding: '12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1.1rem', fontWeight: '600' }}>{isLoading ? 'Processing...' : selectedBooking ? '✅ Complete & Invoice' : '✅ Create Invoice'}</button>
+                  <button type="submit" disabled={isLoading || posSubtotal === 0} style={{ padding: '12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1.1rem', fontWeight: '600' }}>{isLoading ? 'Processing...' : selectedBooking ? '✅ Complete Booking & Invoice' : '✅ Create Invoice'}</button>
                 </form>
               </div>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2> Recent Invoices ({invoices.length})</h2>
+                <h2>📋 Recent Invoices ({invoices.length})</h2>
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {invoices.map(inv => (
                     <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
                       <div><strong>#{inv.id}</strong> • {inv.customer_name}<br/><span style={{ fontSize: '0.8rem', color: '#64748b' }}>{inv.payment_method.toUpperCase()} • {new Date(inv.issued_at).toLocaleDateString()}</span></div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <span style={{ fontWeight: '600' }}>${inv.total_amount.toFixed(2)}</span>
-                        <button onClick={() => printInvoice(inv)} style={{ padding: '6px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>️</button>
-                        <button onClick={() => { if(window.confirm('Delete?')) { supabase.from('invoices').delete().eq('id', inv.id).then(() => fetchData()); }}} style={{ padding: '6px 10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🗑️</button>
+                        <span style={{ fontWeight: '600' }}>LKR {inv.total_amount.toFixed(2)}</span>
+                        <button onClick={() => printInvoice(inv)} style={{ padding: '6px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Invoice</button>
+                        <button onClick={() => { if(window.confirm('Delete this invoice?')) { supabase.from('invoices').delete().eq('id', inv.id).then(() => fetchData()); }}} style={{ padding: '6px 10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🗑️ Delete</button>
                       </div>
                     </div>
                   ))}
@@ -684,7 +686,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ️ Services */}
+          {/* ⚙️ Services */}
           {activeTab === 'services' && (
             <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
@@ -692,14 +694,14 @@ export default function App() {
                 <form onSubmit={editingService ? handleUpdateService : handleAddService} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <input placeholder="Service Name" value={editingService?.name || newService.name} onChange={e => editingService ? setEditingService({...editingService, name: e.target.value}) : setNewService({...newService, name: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                    <input type="tel" inputMode="numeric" placeholder="Price ($)" value={editingService?.price || newService.price} onChange={e => editingService ? setEditingService({...editingService, price: e.target.value}) : setNewService({...newService, price: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                    <input type="tel" inputMode="numeric" placeholder="Price (LKR)" value={editingService?.price || newService.price} onChange={e => editingService ? setEditingService({...editingService, price: e.target.value}) : setNewService({...newService, price: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                     <input type="tel" inputMode="numeric" placeholder="Duration (min)" value={editingService?.duration || newService.duration} onChange={e => editingService ? setEditingService({...editingService, duration: e.target.value}) : setNewService({...newService, duration: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   </div>
                   <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Price Effective From:</label>
                   <input type="date" value={editingService?.effective_from || newService.effective_from} onChange={e => editingService ? setEditingService({...editingService, effective_from: e.target.value}) : setNewService({...newService, effective_from: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                    <button type="submit" disabled={isLoading} style={{ flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : editingService ? 'Update' : 'Add'}</button>
-                    {editingService && <button type="button" onClick={() => setEditingService(null)} style={{ padding: '10px', background: '#94a3b8', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>}
+                    <button type="submit" disabled={isLoading} style={{ flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : editingService ? '💾 Update Service' : '➕ Add Service'}</button>
+                    {editingService && <button type="button" onClick={() => setEditingService(null)} style={{ padding: '10px', background: '#94a3b8', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>❌ Cancel</button>}
                   </div>
                 </form>
               </div>
@@ -708,10 +710,10 @@ export default function App() {
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {services.map(s => (
                     <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
-                      <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{s.name}</strong> • ${s.price} / {s.duration}m<div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>From: {new Date(s.price_effective_from).toLocaleDateString()}</div></div>
+                      <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{s.name}</strong> • LKR {s.price} / {s.duration}m<div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>From: {new Date(s.price_effective_from).toLocaleDateString()}</div></div>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => setEditingService(s)} style={{ background: '#fff', color: '#d97706', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>✏️</button>
-                        <button onClick={() => handleDeleteService(s.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>🗑️</button>
+                        <button onClick={() => setEditingService(s)} style={{ background: '#fff', color: '#d97706', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>✏️ Edit</button>
+                        <button onClick={() => handleDeleteService(s.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>🗑️ Delete</button>
                       </div>
                     </div>
                   ))}
@@ -720,7 +722,7 @@ export default function App() {
             </div>
           )}
 
-          {/*  Suppliers & Expenses */}
+          {/* 🏭 Suppliers & Expenses */}
           {activeTab === 'suppliers_expenses' && (
             <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
@@ -728,7 +730,7 @@ export default function App() {
                 <form onSubmit={handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
                   <input placeholder="Supplier Name" value={newSupplier.name} onChange={e => setNewSupplier({...newSupplier, name: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <input placeholder="Contact" value={newSupplier.contact} onChange={e => setNewSupplier({...newSupplier, contact: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                  <button type="submit" style={{ padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Save</button>
+                  <button type="submit" style={{ padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>💾 Save Supplier</button>
                 </form>
                 <h3>Suppliers ({suppliers.length})</h3>
                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
@@ -743,7 +745,7 @@ export default function App() {
                     <option value="">Select Recurring</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                   <input placeholder="Or type cash supplier" value={newBill.supplier_id ? '' : newBill.supplier_name} onChange={e => setNewBill({...newBill, supplier_name: e.target.value, supplier_id: ''})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                  <input type="tel" inputMode="numeric" placeholder="Amount ($)" value={newBill.amount} onChange={e => setNewBill({...newBill, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                  <input type="tel" inputMode="numeric" placeholder="Amount (LKR)" value={newBill.amount} onChange={e => setNewBill({...newBill, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <input type="date" value={newBill.bill_date} onChange={e => setNewBill({...newBill, bill_date: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <select value={newBill.category} onChange={e => setNewBill({...newBill, category: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                     {expenseTypes.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
@@ -759,7 +761,7 @@ export default function App() {
                   <h3>🏷️ Manage Expense Types</h3>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
                     <input value={newExpenseType} onChange={e => setNewExpenseType(e.target.value)} placeholder="New type" style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-                    <button onClick={handleAddExpenseType} style={{ padding: '6px 12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add</button>
+                    <button onClick={handleAddExpenseType} style={{ padding: '6px 12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>➕ Add Type</button>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {expenseTypes.map(t => (
@@ -772,7 +774,7 @@ export default function App() {
 
                 <div style={{ marginTop: '1rem', maxHeight: '200px', overflowY: 'auto' }}>
                   <h3>Recent Bills</h3>
-                  {bills.map(b => <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.9rem' }}><div><strong>{b.supplier_name}</strong> • {b.category}<div style={{ fontSize: '0.75rem', color: '#64748b' }}>{new Date(b.bill_date).toLocaleDateString()}</div></div><span style={{ fontWeight: '600', color: '#dc2626' }}>-${b.amount}</span></div>)}
+                  {bills.map(b => <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.9rem' }}><div><strong>{b.supplier_name}</strong> • {b.category}<div style={{ fontSize: '0.75rem', color: '#64748b' }}>{new Date(b.bill_date).toLocaleDateString()}</div></div><span style={{ fontWeight: '600', color: '#dc2626' }}>-LKR {b.amount}</span></div>)}
                 </div>
               </div>
             </div>
@@ -789,31 +791,27 @@ export default function App() {
                   <input type="date" value={ledgerTo} onChange={e => setLedgerTo(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button onClick={() => printLedger('cash')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>🖨️ Print Cash</button>
-                  <button onClick={() => printLedger('bank')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>🖨️ Print Bank</button>
+                  <button onClick={() => { printLedger('cash'); printLedger('bank'); }} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Both Reports</button>
                 </div>
               </div>
 
               <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
                 {/* Cash */}
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h2>💵 Cash Book</h2>
-                    <button onClick={() => printLedger('cash')} style={{ padding: '4px 8px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>🖨️</button>
-                  </div>
+                  <h2>💵 Cash Book</h2>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', background: '#f8fafc', padding: '10px', borderRadius: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Date (Fixed)</label>
                       <div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center' }}>
                         <input type="date" value={cashOpenDate} onChange={e => setCashOpenDate(e.target.value)} disabled={!isEditingCashOB} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1, opacity: isEditingCashOB ? 1 : 0.7 }} />
-                        <button onClick={() => setIsEditingCashOB(!isEditingCashOB)} style={{ padding: '6px', background: isEditingCashOB ? '#dc2626' : '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>{isEditingCashOB ? '✕' : '️'}</button>
+                        <button onClick={() => setIsEditingCashOB(!isEditingCashOB)} style={{ padding: '6px', background: isEditingCashOB ? '#dc2626' : '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>{isEditingCashOB ? '✕ Cancel' : '✏️ Edit'}</button>
                       </div>
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Amount</label>
                       <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
                         <input type="number" step="0.01" value={openingCash || ''} onChange={e => setOpeningCash(parseFloat(e.target.value || '0'))} disabled={!isEditingCashOB} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1, opacity: isEditingCashOB ? 1 : 0.7 }} />
-                        <button onClick={() => { if(isEditingCashOB) { setIsEditingCashOB(false); localStorage.setItem('salon_opening_cash', openingCash); alert('💾 Saved!'); } }} style={{ padding: '6px 10px', background: isEditingCashOB ? '#10b981' : '#94a3b8', color: '#fff', border: 'none', borderRadius: '4px', cursor: isEditingCashOB ? 'pointer' : 'default', fontSize: '0.8rem' }} disabled={!isEditingCashOB}></button>
+                        <button onClick={() => { if(isEditingCashOB) { setIsEditingCashOB(false); localStorage.setItem('salon_opening_cash', openingCash); alert('💾 Cash opening balance saved!'); } }} style={{ padding: '6px 10px', background: isEditingCashOB ? '#10b981' : '#94a3b8', color: '#fff', border: 'none', borderRadius: '4px', cursor: isEditingCashOB ? 'pointer' : 'default', fontSize: '0.8rem' }} disabled={!isEditingCashOB}>💾 Save</button>
                       </div>
                     </div>
                   </div>
@@ -827,35 +825,32 @@ export default function App() {
                           <tr key={txn.date+txn.amount} style={{ borderBottom: '1px solid #f1f5f9', background: txn.type === 'opening' ? '#fef3c7' : 'transparent' }}>
                             <td style={{ padding: '8px' }}>{new Date(txn.date).toLocaleDateString()}</td>
                             <td style={{ padding: '8px' }}>{txn.desc}</td>
-                            <td style={{ padding: '8px', textAlign: 'right', color: txn.type === 'income' ? '#10b981' : txn.type === 'opening' ? '#d97706' : '#dc2626', fontWeight: '600' }}>{txn.type === 'income' ? '+' : txn.type === 'opening' ? '🏦' : '-'}${Math.abs(txn.amount).toFixed(2)}</td>
-                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>${txn.balance.toFixed(2)}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', color: txn.type === 'income' ? '#10b981' : txn.type === 'opening' ? '#d97706' : '#dc2626', fontWeight: '600' }}>{txn.type === 'income' ? '+' : txn.type === 'opening' ? '🏦' : '-'}LKR {Math.abs(txn.amount).toFixed(2)}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>LKR {txn.balance.toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot><tr style={{ background: '#eff6ff' }}><td colSpan="3" style={{ padding: '12px', textAlign: 'right', fontWeight: '700' }}>Closing:</td><td style={{ padding: '12px', textAlign: 'right', fontWeight: '800', color: '#1e40af' }}>${accountingData.cash.closing.toFixed(2)}</td></tr></tfoot>
+                      <tfoot><tr style={{ background: '#eff6ff' }}><td colSpan="3" style={{ padding: '12px', textAlign: 'right', fontWeight: '700' }}>Closing:</td><td style={{ padding: '12px', textAlign: 'right', fontWeight: '800', color: '#1e40af' }}>LKR {accountingData.cash.closing.toFixed(2)}</td></tr></tfoot>
                     </table>
                   </div>
                 </div>
 
                 {/* Bank */}
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                    <h2>🏦 Bank Ledger</h2>
-                    <button onClick={() => printLedger('bank')} style={{ padding: '4px 8px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>🖨️</button>
-                  </div>
+                  <h2>🏦 Bank Ledger</h2>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', background: '#f8fafc', padding: '10px', borderRadius: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Date (Fixed)</label>
                       <div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center' }}>
                         <input type="date" value={bankOpenDate} onChange={e => setBankOpenDate(e.target.value)} disabled={!isEditingBankOB} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1, opacity: isEditingBankOB ? 1 : 0.7 }} />
-                        <button onClick={() => setIsEditingBankOB(!isEditingBankOB)} style={{ padding: '6px', background: isEditingBankOB ? '#dc2626' : '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>{isEditingBankOB ? '✕' : '️'}</button>
+                        <button onClick={() => setIsEditingBankOB(!isEditingBankOB)} style={{ padding: '6px', background: isEditingBankOB ? '#dc2626' : '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>{isEditingBankOB ? '✕ Cancel' : '✏️ Edit'}</button>
                       </div>
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Amount</label>
                       <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
                         <input type="number" step="0.01" value={openingBank || ''} onChange={e => setOpeningBank(parseFloat(e.target.value || '0'))} disabled={!isEditingBankOB} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1, opacity: isEditingBankOB ? 1 : 0.7 }} />
-                        <button onClick={() => { if(isEditingBankOB) { setIsEditingBankOB(false); localStorage.setItem('salon_opening_bank', openingBank); alert('💾 Saved!'); } }} style={{ padding: '6px 10px', background: isEditingBankOB ? '#10b981' : '#94a3b8', color: '#fff', border: 'none', borderRadius: '4px', cursor: isEditingBankOB ? 'pointer' : 'default', fontSize: '0.8rem' }} disabled={!isEditingBankOB}></button>
+                        <button onClick={() => { if(isEditingBankOB) { setIsEditingBankOB(false); localStorage.setItem('salon_opening_bank', openingBank); alert('💾 Bank opening balance saved!'); } }} style={{ padding: '6px 10px', background: isEditingBankOB ? '#10b981' : '#94a3b8', color: '#fff', border: 'none', borderRadius: '4px', cursor: isEditingBankOB ? 'pointer' : 'default', fontSize: '0.8rem' }} disabled={!isEditingBankOB}>💾 Save</button>
                       </div>
                     </div>
                   </div>
@@ -869,12 +864,12 @@ export default function App() {
                           <tr key={txn.date+txn.amount} style={{ borderBottom: '1px solid #f1f5f9', background: txn.type === 'opening' ? '#fef3c7' : 'transparent' }}>
                             <td style={{ padding: '8px' }}>{new Date(txn.date).toLocaleDateString()}</td>
                             <td style={{ padding: '8px' }}>{txn.desc}</td>
-                            <td style={{ padding: '8px', textAlign: 'right', color: txn.type === 'income' ? '#10b981' : txn.type === 'opening' ? '#d97706' : '#dc2626', fontWeight: '600' }}>{txn.type === 'income' ? '+' : txn.type === 'opening' ? '🏦' : '-'}${Math.abs(txn.amount).toFixed(2)}</td>
-                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>${txn.balance.toFixed(2)}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', color: txn.type === 'income' ? '#10b981' : txn.type === 'opening' ? '#d97706' : '#dc2626', fontWeight: '600' }}>{txn.type === 'income' ? '+' : txn.type === 'opening' ? '🏦' : '-'}LKR {Math.abs(txn.amount).toFixed(2)}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>LKR {txn.balance.toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot><tr style={{ background: '#eff6ff' }}><td colSpan="3" style={{ padding: '12px', textAlign: 'right', fontWeight: '700' }}>Closing:</td><td style={{ padding: '12px', textAlign: 'right', fontWeight: '800', color: '#1e40af' }}>${accountingData.bank.closing.toFixed(2)}</td></tr></tfoot>
+                      <tfoot><tr style={{ background: '#eff6ff' }}><td colSpan="3" style={{ padding: '12px', textAlign: 'right', fontWeight: '700' }}>Closing:</td><td style={{ padding: '12px', textAlign: 'right', fontWeight: '800', color: '#1e40af' }}>LKR {accountingData.bank.closing.toFixed(2)}</td></tr></tfoot>
                     </table>
                   </div>
                 </div>
@@ -887,15 +882,15 @@ export default function App() {
             <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
                 <h2>📄 Financial Statement</h2>
-                <button onClick={() => window.print()} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🖨️ Print</button>
+                <button onClick={() => window.print()} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Statement</button>
               </div>
               <div style={{ display: 'grid', gap: '0.8rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span> Revenue</span><strong style={{ color: '#10b981' }}>${(accountingData.cash.totalIn + accountingData.bank.totalIn).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span> Materials</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>👷 Labour</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f0fdf4', borderRadius: '6px', fontWeight: 'bold' }}><span>💰 Gross Profit</span><strong style={{ color: '#15803d' }}>${(accountingData.cash.totalIn + accountingData.bank.totalIn - bills.filter(b => b.category === 'materials' || b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span> Other</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => !['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#eff6ff', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span>🎯 Net Profit</span><strong style={{ color: '#1e40af' }}>${(accountingData.cash.totalIn + accountingData.bank.totalIn - bills.reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📈 Revenue</span><strong style={{ color: '#10b981' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📦 Materials</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>👷 Labour</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f0fdf4', borderRadius: '6px', fontWeight: 'bold' }}><span>💰 Gross Profit</span><strong style={{ color: '#15803d' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn - bills.filter(b => b.category === 'materials' || b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📋 Other</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => !['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#eff6ff', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span>🎯 Net Profit</span><strong style={{ color: '#1e40af' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn - bills.reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
               </div>
             </div>
           )}
@@ -924,11 +919,11 @@ export default function App() {
             <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '12px', padding: '1.5rem', textAlign: 'center', marginBottom: '1.5rem' }}>
               <div style={{ fontSize: '3rem', fontWeight: '800' }}>{showLoyaltyCard.loyalty_points || 0}</div>
               <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Points Available</div>
-              <div style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: '4px' }}>Value: ${(showLoyaltyCard.loyalty_points || 0).toFixed(2)}</div>
+              <div style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: '4px' }}>Value: LKR {(showLoyaltyCard.loyalty_points || 0).toFixed(2)}</div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setShowLoyaltyCard(null)} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Close</button>
-              <button onClick={() => { redeemLoyalty(showLoyaltyCard.id, Math.min(showLoyaltyCard.loyalty_points || 0, 100)); setShowLoyaltyCard(null); }} style={{ flex: 1, padding: '10px', background: '#fff', color: '#7c3aed', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Redeem</button>
+              <button onClick={() => setShowLoyaltyCard(null)} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>❌ Close</button>
+              <button onClick={() => { redeemLoyalty(showLoyaltyCard.id, Math.min(showLoyaltyCard.loyalty_points || 0, 100)); setShowLoyaltyCard(null); }} style={{ flex: 1, padding: '10px', background: '#fff', color: '#7c3aed', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>💰 Redeem Points</button>
             </div>
           </div>
         </div>
