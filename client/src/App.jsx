@@ -9,7 +9,7 @@ const SALON_CONFIG = {
   salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/Enoka%20logo.jpg',
   bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png',
   loginBgUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/login%20screen.jpg',
-  loyaltyRate: 10,
+  loyaltyRate: 100,
   openTime: '09:00',
   closeTime: '18:00',
   currentYear: new Date().getFullYear(),
