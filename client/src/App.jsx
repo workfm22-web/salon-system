@@ -8,7 +8,7 @@ const SALON_CONFIG = {
   telephone: '+94 112 369 777',
   //  Replace these with your actual Supabase Storage public URLs
   salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/Enoka%20logo.jpg',
-  bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png'
+  bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png',,
   loyaltyRate: 10 // $1 = 1 point
 };
 
