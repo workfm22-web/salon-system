@@ -10,11 +10,15 @@ export default function App() {
   const [authError, setAuthError] = useState(null);
 
   // 🏢 Salon Branding
-  const [salonName, setSalonName] = useState(() => localStorage.getItem('salon_name') || '✂️ Salon Manager');
+  const [salonName, setSalonName] = useState(() => localStorage.getItem('salon_name') || 'Salon Manager');
   const [salonLogo, setSalonLogo] = useState(() => localStorage.getItem('salon_logo') || '');
   
-  useEffect(() => { localStorage.setItem('salon_name', salonName); }, [salonName]);
-  useEffect(() => { localStorage.setItem('salon_logo', salonLogo); }, [salonLogo]);
+  // 💼 BizHub Branding
+  const [bizHubLogo, setBizHubLogo] = useState(() => localStorage.getItem('bizhub_logo') || '');
+  useEffect(() => localStorage.setItem('bizhub_logo', bizHubLogo), [bizHubLogo]);
+  
+  useEffect(() => localStorage.setItem('salon_name', salonName), [salonName]);
+  useEffect(() => localStorage.setItem('salon_logo', salonLogo), [salonLogo]);
 
   // 📊 Dashboard State
   const [activeTab, setActiveTab] = useState('customers');
@@ -31,7 +35,7 @@ export default function App() {
   const [suppliers, setSuppliers] = useState([]);
   const [bills, setBills] = useState([]);
 
-  // 📝 Forms
+  //  Forms
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [newAppointment, setNewAppointment] = useState({ customerId: '', serviceId: '', time: '' });
   const [newSupplier, setNewSupplier] = useState({ name: '', contact: '' });
@@ -39,13 +43,13 @@ export default function App() {
   const [newService, setNewService] = useState({ name: '', price: '', duration: '', effective_from: new Date().toISOString().split('T')[0] });
   const [editingService, setEditingService] = useState(null);
 
-  // 💰 Opening Balances
+  //  Opening Balances
   const [openingCash, setOpeningCash] = useState(() => parseFloat(localStorage.getItem('salon_opening_cash') || '0'));
   const [openingBank, setOpeningBank] = useState(() => parseFloat(localStorage.getItem('salon_opening_bank') || '0'));
   useEffect(() => localStorage.setItem('salon_opening_cash', openingCash), [openingCash]);
   useEffect(() => localStorage.setItem('salon_opening_bank', openingBank), [openingBank]);
 
-  // 🛒 POS
+  //  POS
   const [posForm, setPosForm] = useState({
     customerType: 'list', customerId: '', walkinName: '',
     items: [{ serviceId: '', qty: 1 }], paymentMethod: 'cash', amountTendered: ''
@@ -72,7 +76,7 @@ export default function App() {
     setCustomers([]); setServices([]); setAppointments([]); setInvoices([]); setSuppliers([]); setBills([]);
   };
 
-  // 🔌 Init & Fetch
+  //  Init & Fetch
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); if (session) fetchData(); });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setSession(session); if (session) fetchData(); });
@@ -236,7 +240,6 @@ export default function App() {
       const { error } = await supabase.from('invoices').insert(invData);
       if (error) throw error;
       
-      // Update booking status if selected
       if (selectedBooking) {
         await supabase.from('appointments').update({ status: 'completed' }).eq('id', selectedBooking.id);
       }
@@ -424,7 +427,7 @@ export default function App() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem' }}>
               {/* Customers Panel */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>👥 Customers ({customers.length})</h2>
+                <h2> Customers ({customers.length})</h2>
                 {customers.map(c => (
                   <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
                     <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{c.name}</strong><div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>{c.phone}</div></div>
@@ -470,17 +473,16 @@ export default function App() {
             </div>
           )}
 
-          {/* 🧾 Invoices - Form + List */}
+          {/*  Invoices - Form + List */}
           {activeTab === 'invoices' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               {/* Invoice Creation Form */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                 <h2>🧾 Create Invoice</h2>
                 
-                {/* Upcoming Bookings Quick Select */}
                 {upcomingBookings.length > 0 && !selectedBooking && (
                   <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0369a1' }}>📅 Quick Select Booking</h3>
+                    <h3 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0369a1' }}> Quick Select Booking</h3>
                     <div style={{ display: 'grid', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
                       {upcomingBookings.slice(0, 5).map(booking => (
                         <div key={booking.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', background: '#fff', borderRadius: '6px' }}>
@@ -538,7 +540,7 @@ export default function App() {
 
               {/* Invoice List */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>📋 Recent Invoices ({invoices.length})</h2>
+                <h2> Recent Invoices ({invoices.length})</h2>
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {invoices.map(inv => (
                     <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
@@ -546,7 +548,7 @@ export default function App() {
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                         <span style={{ fontWeight: '600' }}>${inv.total_amount.toFixed(2)}</span>
                         <button onClick={() => printInvoice(inv)} style={{ padding: '6px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🖨️ Print</button>
-                        <button onClick={() => { if(window.confirm('Delete?')) { supabase.from('invoices').delete().eq('id', inv.id).then(() => fetchData()); }}} style={{ padding: '6px 10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🗑️</button>
+                        <button onClick={() => { if(window.confirm('Delete?')) { supabase.from('invoices').delete().eq('id', inv.id).then(() => fetchData()); }}} style={{ padding: '6px 10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>️</button>
                       </div>
                     </div>
                   ))}
@@ -575,7 +577,7 @@ export default function App() {
                 </form>
               </div>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>📋 Services ({services.length})</h2>
+                <h2> Services ({services.length})</h2>
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {services.map(s => (
                     <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
@@ -618,7 +620,7 @@ export default function App() {
               <input type="tel" inputMode="numeric" placeholder="Amount ($)" value={newBill.amount} onChange={e => setNewBill({...newBill, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
               <input type="date" value={newBill.bill_date} onChange={e => setNewBill({...newBill, bill_date: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
               <select value={newBill.category} onChange={e => setNewBill({...newBill, category: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                <option value="materials">📦 Materials</option><option value="labour">👷 Labour</option><option value="utilities">💡 Utilities</option><option value="rent">🏢 Rent</option><option value="other">📋 Other</option>
+                <option value="materials">📦 Materials</option><option value="labour">👷 Labour</option><option value="utilities">💡 Utilities</option><option value="rent"> Rent</option><option value="other"> Other</option>
               </select>
               <select value={newBill.payment_method} onChange={e => setNewBill({...newBill, payment_method: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                 <option value="cash">💵 Cash</option><option value="bank_transfer">🏦 Bank Transfer</option><option value="credit_card">💳 Credit Card</option><option value="debit_card">💳 Debit Card</option><option value="card">💳 Card</option>
@@ -674,7 +676,7 @@ export default function App() {
 
           {/* 🏦 Bank Ledger */}
           {activeTab === 'bank' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-            <h2>🏦 Bank & Card Ledger</h2>
+            <h2> Bank & Card Ledger</h2>
             <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', alignItems: 'center', background: '#f8fafc', padding: '10px', borderRadius: '8px', flexWrap: 'wrap' }}>
               <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Opening Balance ($):</label>
               <input type="number" step="0.01" value={openingBank || ''} onChange={e => setOpeningBank(parseFloat(e.target.value || '0'))} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '120px' }} />
@@ -712,7 +714,7 @@ export default function App() {
             </div>
           </div>}
 
-          {/* 📄 Statements */}
+          {/*  Statements */}
           {activeTab === 'statements' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
               <h2>📄 Financial Statement</h2>
@@ -725,12 +727,12 @@ export default function App() {
             </div>
             <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <div style={{ display: 'grid', gap: '0.8rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📈 Revenue</span><strong style={{ color: '#10b981' }}>${pnl.revenue.toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span> Revenue</span><strong style={{ color: '#10b981' }}>${pnl.revenue.toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📦 Materials</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>👷 Labour</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f0fdf4', borderRadius: '6px', fontWeight: 'bold' }}><span>💰 Gross Profit</span><strong style={{ color: '#15803d' }}>${(pnl.revenue - bills.filter(b => ['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📋 Other</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => !['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: pnl.profit >= 0 ? '#dcfce7' : '#fee2e2', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span>🎯 Net Profit</span><strong style={{ color: pnl.profit >= 0 ? '#166534' : '#991b1b' }}>${pnl.profit.toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: pnl.profit >= 0 ? '#dcfce7' : '#fee2e2', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span> Net Profit</span><strong style={{ color: pnl.profit >= 0 ? '#166534' : '#991b1b' }}>${pnl.profit.toFixed(2)}</strong></div>
               </div>
             </div>
           </div>}
@@ -746,8 +748,26 @@ export default function App() {
         marginTop: '2rem'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <img src="https://i.imgur.com/your-bizhub-logo.png" alt="BizHub Solutions" style={{ height: '30px' }} />
+          {bizHubLogo && <img src={bizHubLogo} alt="BizHub Solutions" style={{ height: '30px' }} />}
           <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Powered by <strong style={{ color: '#059669' }}>BizHub Solutions</strong></span>
+          
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files[0];
+              if (file) {
+                const reader = new FileReader();
+                reader.onloadend = () => setBizHubLogo(reader.result);
+                reader.readAsDataURL(file);
+              }
+            }}
+            style={{ display: 'none' }}
+            id="bizhub-logo-upload"
+          />
+          <label htmlFor="bizhub-logo-upload" style={{ fontSize: '0.8rem', color: '#3b82f6', cursor: 'pointer', textDecoration: 'underline', marginLeft: '8px' }}>
+            {bizHubLogo ? 'Change Logo' : 'Upload Logo'}
+          </label>
         </div>
         <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#94a3b8' }}>
           Professional Business Management Solutions
