@@ -23,12 +23,16 @@ export default function App() {
   const [invoices, setInvoices] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [bills, setBills] = useState([]);
+  const [cashBook, setCashBook] = useState([]);
+  const [bankTransactions, setBankTransactions] = useState([]);
 
   // 📝 Simple Forms
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [newAppointment, setNewAppointment] = useState({ customerId: '', serviceId: '', time: '' });
   const [newSupplier, setNewSupplier] = useState({ name: '', contact: '' });
-  const [newBill, setNewBill] = useState({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0] });
+  const [newBill, setNewBill] = useState({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0], category: 'other' });
+  const [newCashEntry, setNewCashEntry] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', type: 'expense', category: 'other' });
+  const [newBankTxn, setNewBankTxn] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', payment_type: 'bank_transfer', category: 'other', reference: '' });
 
   // ⚙️ Services Form
   const [newService, setNewService] = useState({ name: '', price: '', duration: '', effective_from: new Date().toISOString().split('T')[0] });
@@ -61,7 +65,7 @@ export default function App() {
   };
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setCustomers([]); setServices([]); setAppointments([]); setInvoices([]); setSuppliers([]); setBills([]);
+    setCustomers([]); setServices([]); setAppointments([]); setInvoices([]); setSuppliers([]); setBills([]); setCashBook([]); setBankTransactions([]);
   };
 
   // 🔌 Init & Fetch
@@ -74,21 +78,25 @@ export default function App() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [cust, svc, apt, inv, sup, bil] = await Promise.all([
+      const [cust, svc, apt, inv, sup, bil, cash, bank] = await Promise.all([
         supabase.from('customers').select('*').order('created_at', { ascending: false }),
         supabase.from('services').select('*').order('name'),
         supabase.from('appointments').select('*').order('time', { ascending: true }),
         supabase.from('invoices').select('*').order('issued_at', { ascending: false }),
         supabase.from('suppliers').select('*').order('name'),
-        supabase.from('supplier_bills').select('*').order('bill_date', { ascending: false })
+        supabase.from('supplier_bills').select('*').order('bill_date', { ascending: false }),
+        supabase.from('cash_book').select('*').order('date', { ascending: false }),
+        supabase.from('bank_card_transactions').select('*').order('date', { ascending: false })
       ]);
-      [cust, svc, apt, inv, sup, bil].forEach(res => { if (res.error) throw res.error; });
+      [cust, svc, apt, inv, sup, bil, cash, bank].forEach(res => { if (res.error) throw res.error; });
       setCustomers(cust.data || []);
       setServices(svc.data || []);
       setAppointments(apt.data || []);
       setInvoices((inv.data || []).map(i => ({ ...i, items: typeof i.items === 'string' ? JSON.parse(i.items) : (i.items || []) })));
       setSuppliers(sup.data || []);
       setBills(bil.data || []);
+      setCashBook(cash.data || []);
+      setBankTransactions(bank.data || []);
     } catch (err) { setError('Failed to load data: ' + err.message); }
     finally { setIsLoading(false); }
   };
@@ -161,7 +169,23 @@ export default function App() {
     const finalName = newBill.supplier_name || (newBill.supplier_id ? suppliers.find(s => s.id == newBill.supplier_id)?.name : '');
     if (!finalName || !newBill.amount) return setError('Supplier & amount required');
     setIsLoading(true);
-    try { const { error } = await supabase.from('supplier_bills').insert({ supplier_name: finalName, amount: Number(newBill.amount), description: newBill.description, bill_date: newBill.bill_date }); if (error) throw error; await fetchData(); setNewBill({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0] }); }
+    try { const { error } = await supabase.from('supplier_bills').insert({ supplier_name: finalName, amount: Number(newBill.amount), description: newBill.description, bill_date: newBill.bill_date, category: newBill.category }); if (error) throw error; await fetchData(); setNewBill({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0], category: 'other' }); }
+    catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
+  };
+
+  // 💵 Cash Book
+  const handleAddCashEntry = async (e) => {
+    e.preventDefault(); if (!newCashEntry.description || !newCashEntry.amount) return;
+    setIsLoading(true);
+    try { const { error } = await supabase.from('cash_book').insert({ ...newCashEntry, amount: Number(newCashEntry.amount) }); if (error) throw error; await fetchData(); setNewCashEntry({ date: new Date().toISOString().split('T')[0], description: '', amount: '', type: 'expense', category: 'other' }); }
+    catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
+  };
+
+  // 🏦 Bank/Card Transactions
+  const handleAddBankTxn = async (e) => {
+    e.preventDefault(); if (!newBankTxn.description || !newBankTxn.amount) return;
+    setIsLoading(true);
+    try { const { error } = await supabase.from('bank_card_transactions').insert({ ...newBankTxn, amount: Number(newBankTxn.amount) }); if (error) throw error; await fetchData(); setNewBankTxn({ date: new Date().toISOString().split('T')[0], description: '', amount: '', payment_type: 'bank_transfer', category: 'other', reference: '' }); }
     catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
   };
 
@@ -214,16 +238,73 @@ export default function App() {
       <div class="line"></div><p style="text-align:center;margin-top:15px;font-size:0.85rem">PAID • Thank you! ❤️</p><script>window.print();window.close()</script></body></html>`);
   };
 
-  // 📊 P&L Reports (Fixed Year: Jan 1 - Dec 31)
-  const getPnL = () => {
-    const now = new Date(); let start;
-    if (reportPeriod === 'day') start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    else if (reportPeriod === 'month') start = new Date(now.getFullYear(), now.getMonth(), 1);
-    else if (reportPeriod === 'year') start = new Date(now.getFullYear(), 0, 1);
+  // 📄 Print Financial Statement
+  const printFinancialStatement = () => {
+    const now = new Date();
+    const y = now.getFullYear().toString();
+    const m = (now.getMonth() + 1).toString().padStart(2, '0');
     
-    const end = new Date(start); end.setDate(end.getDate() + 1);
-    const revenue = invoices.filter(inv => new Date(inv.issued_at) >= start && new Date(inv.issued_at) < end && inv.status === 'paid').reduce((s, inv) => s + Number(inv.total_amount || 0), 0);
-    const expenses = bills.filter(b => new Date(b.bill_date) >= start && new Date(b.bill_date) < end).reduce((s, b) => s + Number(b.amount || 0), 0);
+    // Calculate totals
+    const revenue = invoices.filter(inv => {
+      if (inv.status !== 'paid' || !inv.issued_at) return false;
+      const [invY, invM] = inv.issued_at.split('-');
+      return reportPeriod === 'year' ? invY === y : (reportPeriod === 'month' ? invY === y && invM === m : true);
+    }).reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
+
+    const materialCost = bills.filter(b => b.category === 'materials').reduce((sum, b) => sum + Number(b.amount || 0), 0);
+    const labourCost = bills.filter(b => b.category === 'labour').reduce((sum, b) => sum + Number(b.amount || 0), 0);
+    const otherExpenses = bills.filter(b => !['materials', 'labour'].includes(b.category)).reduce((sum, b) => sum + Number(b.amount || 0), 0);
+    const grossProfit = revenue - materialCost - labourCost;
+    const netProfit = grossProfit - otherExpenses;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Financial Statement</title>
+      <style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px}h1{text-align:center;color:#1e3a8a;border-bottom:3px solid #1e3a8a;padding-bottom:10px}h2{color:#334155;margin-top:30px;border-bottom:1px solid #cbd5e1;padding-bottom:5px}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9}.total{font-weight:bold;font-size:1.1em;background:#f8fafc;padding:10px;margin-top:10px}.subtotal{background:#f1f5f9;padding:6px}.net-profit{background:#dcfce7;font-size:1.3em;font-weight:bold;padding:12px}@media print{body{margin:0}}</style></head><body>
+      <h1>✂️ Salon Manager<br/>Financial Statement</h1>
+      <p style="text-align:center;color:#64748b">${reportPeriod === 'year' ? 'Year' : reportPeriod === 'month' ? 'Month' : 'Today'}: ${now.toLocaleDateString()}</p>
+      
+      <h2>Revenue</h2>
+      <div class="row"><span>Total Invoices (Paid)</span><span>$${revenue.toFixed(2)}</span></div>
+      <div class="total"><span>Total Revenue</span><span>$${revenue.toFixed(2)}</span></div>
+
+      <h2>Cost of Sales</h2>
+      <div class="row"><span>Materials</span><span>-$${materialCost.toFixed(2)}</span></div>
+      <div class="row"><span>Labour</span><span>-$${labourCost.toFixed(2)}</span></div>
+      <div class="subtotal"><span>Gross Profit</span><span>$${grossProfit.toFixed(2)}</span></div>
+
+      <h2>Operating Expenses</h2>
+      <div class="row"><span>Other Expenses</span><span>-$${otherExpenses.toFixed(2)}</span></div>
+      <div class="net-profit"><span>Net Profit</span><span>$${netProfit.toFixed(2)}</span></div>
+
+      <p style="text-align:center;margin-top:40px;font-size:0.85rem;color:#94a3b8">Generated: ${new Date().toLocaleString()}</p>
+      <script>window.print();window.close()</script></body></html>`);
+  };
+
+  // 📊 P&L Reports
+  const getPnL = () => {
+    const now = new Date();
+    const y = now.getFullYear().toString();
+    const m = (now.getMonth() + 1).toString().padStart(2, '0');
+    const d = now.getDate().toString().padStart(2, '0');
+
+    const revenue = invoices.reduce((sum, inv) => {
+      if (inv.status !== 'paid' || !inv.issued_at) return sum;
+      const [invY, invM, invD] = inv.issued_at.split('-');
+      if (reportPeriod === 'year' && invY === y) return sum + Number(inv.total_amount || 0);
+      if (reportPeriod === 'month' && invY === y && invM === m) return sum + Number(inv.total_amount || 0);
+      if (reportPeriod === 'day' && invY === y && invM === m && invD === d) return sum + Number(inv.total_amount || 0);
+      return sum;
+    }, 0);
+
+    const expenses = bills.reduce((sum, b) => {
+      if (!b.bill_date) return sum;
+      const [bY, bM, bD] = b.bill_date.split('-');
+      if (reportPeriod === 'year' && bY === y) return sum + Number(b.amount || 0);
+      if (reportPeriod === 'month' && bY === y && bM === m) return sum + Number(b.amount || 0);
+      if (reportPeriod === 'day' && bY === y && bM === m && bD === d) return sum + Number(b.amount || 0);
+      return sum;
+    }, 0);
+
     return { revenue, expenses, profit: revenue - expenses };
   };
 
@@ -249,18 +330,18 @@ export default function App() {
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)' }}>
       {/* 🆕 Dark Blue Header */}
       <div style={{ background: '#1e3a8a', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-        <span role="img" aria-label="scissors" style={{ fontSize: '2.2rem', lineHeight: '1' }}>✂️</span>
-        <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#ffffff', fontWeight: '700', letterSpacing: '0.5px' }}>Salon Manager</h1>
-        <button onClick={handleLogout} style={{ marginLeft: 'auto', padding: '6px 14px', background: '#dc2626', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>🚪 Logout</button>
+        <span style={{ fontSize: '2.2rem' }}>✂️</span>
+        <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#ffffff', fontWeight: '700' }}>Salon Manager</h1>
+        <button onClick={handleLogout} style={{ marginLeft: 'auto', padding: '6px 14px', background: '#dc2626', color: '#fff', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>🚪 Logout</button>
       </div>
       
-      <div style={{ padding: '1.5rem', maxWidth: '1200px', margin: '0 auto', fontFamily: 'system-ui' }}>
+      <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', fontFamily: 'system-ui' }}>
         {error && <div style={{ background: '#fef2f2', color: '#991b1b', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>⚠️ {error}</div>}
         {isLoading && <div style={{ textAlign: 'center', padding: '10px', color: '#64748b' }}>⏳ Syncing...</div>}
         
-        <nav style={{ display: 'flex', gap: '8px', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap' }}>
-          {['customers', 'bookings', 'pos', 'invoices', 'services', 'suppliers', 'expenses', 'reports'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '8px 16px', background: activeTab === tab ? '#3b82f6' : '#f1f5f9', color: activeTab === tab ? '#fff' : '#334155', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: activeTab === tab ? '600' : '400' }}>{tab.charAt(0).toUpperCase() + tab.slice(1)}</button>
+        <nav style={{ display: 'flex', gap: '6px', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', overflowX: 'auto' }}>
+          {['customers', 'bookings', 'pos', 'invoices', 'services', 'suppliers', 'cashbook', 'bank', 'statements', 'reports'].map(tab => (
+            <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '8px 12px', background: activeTab === tab ? '#3b82f6' : '#f1f5f9', color: activeTab === tab ? '#fff' : '#334155', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: activeTab === tab ? '600' : '400', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>{tab.charAt(0).toUpperCase() + tab.slice(1)}</button>
           ))}
         </nav>
 
@@ -270,10 +351,7 @@ export default function App() {
             <h2>👥 Customers ({customers.length})</h2>
             {customers.map(c => (
               <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
-                <div>
-                  <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{c.name}</strong>
-                  <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>{c.phone}</div>
-                </div>
+                <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{c.name}</strong><div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>{c.phone}</div></div>
                 <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
                   <button onClick={() => handleEditCustomer(c.id)} style={{ background: '#fff', color: '#d97706', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>✏️ Edit</button>
                   <button onClick={() => handleDeleteCustomer(c.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>🗑️ Delete</button>
@@ -290,7 +368,7 @@ export default function App() {
           {/* 📅 Bookings */}
           {activeTab === 'bookings' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
             <h2>📅 Bookings</h2>
-            <form onSubmit={handleBookAppointment} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr 1fr auto' }}>
+            <form onSubmit={handleBookAppointment} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))' }}>
               <select value={newAppointment.customerId} onChange={e => setNewAppointment({...newAppointment, customerId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
               <select value={newAppointment.serviceId} onChange={e => setNewAppointment({...newAppointment, serviceId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (${s.price})</option>)}</select>
               <input type="datetime-local" value={newAppointment.time} onChange={e => setNewAppointment({...newAppointment, time: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
@@ -308,7 +386,7 @@ export default function App() {
           {activeTab === 'pos' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
             <h2>🛒 New Invoice (POS)</h2>
             <form onSubmit={handleCreateInvoice} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
                 <div>
                   <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Customer</label>
                   <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
@@ -327,7 +405,7 @@ export default function App() {
                 {posForm.items.map((item, idx) => (
                   <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '8px', marginTop: '6px' }}>
                     <select value={item.serviceId} onChange={e => updateItem(idx, 'serviceId', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (${s.price})</option>)}</select>
-                    <input type="number" min="1" value={item.qty} onChange={e => updateItem(idx, 'qty', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                    <input type="tel" inputMode="numeric" value={item.qty} onChange={e => updateItem(idx, 'qty', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                     <button type="button" onClick={() => removeItemLine(idx)} style={{ padding: '8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🗑️</button>
                   </div>
                 ))}
@@ -335,7 +413,7 @@ export default function App() {
               </div>
               <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}><span>Total:</span><strong>${posTotal.toFixed(2)}</strong></div>
-                {posForm.paymentMethod === 'cash' && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><input type="number" step="0.01" placeholder="Cash Tendered" value={posForm.amountTendered} onChange={e => setPosForm({...posForm, amountTendered: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} /><div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem' }}>Change Due</div><strong style={{ fontSize: '1.2rem', color: posChange >= 0 ? '#166534' : '#dc2626' }}>${posChange.toFixed(2)}</strong></div></div>}
+                {posForm.paymentMethod === 'cash' && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><input type="tel" inputMode="numeric" placeholder="Cash Tendered" value={posForm.amountTendered} onChange={e => setPosForm({...posForm, amountTendered: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} /><div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem' }}>Change Due</div><strong style={{ fontSize: '1.2rem', color: posChange >= 0 ? '#166534' : '#dc2626' }}>${posChange.toFixed(2)}</strong></div></div>}
               </div>
               <button type="submit" disabled={isLoading || posTotal === 0} style={{ padding: '12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1.1rem', fontWeight: '600' }}>{isLoading ? 'Processing...' : '✅ Complete Sale'}</button>
             </form>
@@ -358,7 +436,7 @@ export default function App() {
             </div>
           </div>}
 
-          {/* ⚙️ Services (Fully Working) */}
+          {/* ⚙️ Services */}
           {activeTab === 'services' && (
             <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
@@ -366,8 +444,8 @@ export default function App() {
                 <form onSubmit={editingService ? handleUpdateService : handleAddService} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <input placeholder="Service Name" value={editingService?.name || newService.name} onChange={e => editingService ? setEditingService({...editingService, name: e.target.value}) : setNewService({...newService, name: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                    <input type="number" step="0.01" placeholder="Price ($)" value={editingService?.price || newService.price} onChange={e => editingService ? setEditingService({...editingService, price: e.target.value}) : setNewService({...newService, price: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-                    <input type="number" placeholder="Duration (min)" value={editingService?.duration || newService.duration} onChange={e => editingService ? setEditingService({...editingService, duration: e.target.value}) : setNewService({...newService, duration: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                    <input type="tel" inputMode="numeric" placeholder="Price ($)" value={editingService?.price || newService.price} onChange={e => editingService ? setEditingService({...editingService, price: e.target.value}) : setNewService({...newService, price: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                    <input type="tel" inputMode="numeric" placeholder="Duration (min)" value={editingService?.duration || newService.duration} onChange={e => editingService ? setEditingService({...editingService, duration: e.target.value}) : setNewService({...newService, duration: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   </div>
                   <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Price Effective From:</label>
                   <input type="date" value={editingService?.effective_from || newService.effective_from} onChange={e => editingService ? setEditingService({...editingService, effective_from: e.target.value}) : setNewService({...newService, effective_from: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
@@ -382,10 +460,7 @@ export default function App() {
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {services.map(s => (
                     <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
-                      <div>
-                        <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{s.name}</strong> • ${s.price} / {s.duration}m
-                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>From: {new Date(s.price_effective_from).toLocaleDateString()}</div>
-                      </div>
+                      <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{s.name}</strong> • ${s.price} / {s.duration}m<div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>From: {new Date(s.price_effective_from).toLocaleDateString()}</div></div>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => setEditingService(s)} style={{ background: '#fff', color: '#d97706', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>✏️ Edit</button>
                         <button onClick={() => handleDeleteService(s.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>🗑️ Delete</button>
@@ -398,7 +473,7 @@ export default function App() {
           )}
 
           {/* 🏭 Suppliers */}
-          {activeTab === 'suppliers' && <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: '1fr 1fr' }}>
+          {activeTab === 'suppliers' && <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
             <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
               <h2>➕ Add Supplier</h2>
               <form onSubmit={handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -413,33 +488,115 @@ export default function App() {
             </div>
           </div>}
 
-          {/* 📦 Expenses */}
-          {activeTab === 'expenses' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-            <h2>📦 Record Supplier Bill</h2>
-            <form onSubmit={handleAddBill} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
-              <select value={newBill.supplier_id || ''} onChange={e => setNewBill({...newBill, supplier_id: e.target.value, supplier_name: suppliers.find(s => s.id == e.target.value)?.name || ''})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                <option value="">Select Recurring Supplier</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-              <input placeholder="Or type cash supplier" value={newBill.supplier_id ? '' : newBill.supplier_name} onChange={e => setNewBill({...newBill, supplier_name: e.target.value, supplier_id: ''})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-              <input type="number" step="0.01" placeholder="Amount ($)" value={newBill.amount} onChange={e => setNewBill({...newBill, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-              <input type="date" value={newBill.bill_date} onChange={e => setNewBill({...newBill, bill_date: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-              <input placeholder="Description" value={newBill.description} onChange={e => setNewBill({...newBill, description: e.target.value})} style={{ gridColumn: '1 / -1', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-              <button type="submit" disabled={isLoading} style={{ gridColumn: '1 / -1', padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '📥 Add Bill'}</button>
-            </form>
-            <div style={{ marginTop: '1.5rem' }}>
-              <h3>Recent Bills</h3>
-              {bills.map(b => <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}><div><strong>{b.supplier_name}</strong> • {b.description}<br/><span style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(b.bill_date).toLocaleDateString()}</span></div><span style={{ fontWeight: '600', color: '#dc2626' }}>-${b.amount}</span></div>)}
+          {/* 💵 Cash Book */}
+          {activeTab === 'cashbook' && <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
+              <h2>💵 Add Cash Entry</h2>
+              <form onSubmit={handleAddCashEntry} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <input type="date" value={newCashEntry.date} onChange={e => setNewCashEntry({...newCashEntry, date: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                <input placeholder="Description" value={newCashEntry.description} onChange={e => setNewCashEntry({...newCashEntry, description: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <input type="tel" inputMode="numeric" placeholder="Amount" value={newCashEntry.amount} onChange={e => setNewCashEntry({...newCashEntry, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                  <select value={newCashEntry.type} onChange={e => setNewCashEntry({...newCashEntry, type: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                  </select>
+                </div>
+                <select value={newCashEntry.category} onChange={e => setNewCashEntry({...newCashEntry, category: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <option value="other">Other</option>
+                  <option value="materials">Materials</option>
+                  <option value="labour">Labour</option>
+                  <option value="utilities">Utilities</option>
+                  <option value="rent">Rent</option>
+                </select>
+                <button type="submit" style={{ padding: '10px', background: newCashEntry.type === 'income' ? '#10b981' : '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{newCashEntry.type === 'income' ? '💵 Add Income' : '💸 Add Expense'}</button>
+              </form>
+            </div>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
+              <h2>📒 Cash Book ({cashBook.length})</h2>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {cashBook.map(entry => (
+                  <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <div><strong>{entry.description}</strong><div style={{ fontSize: '0.8rem', color: '#64748b' }}>{entry.category} • {new Date(entry.date).toLocaleDateString()}</div></div>
+                    <span style={{ fontWeight: '600', color: entry.type === 'income' ? '#10b981' : '#dc2626' }}>{entry.type === 'income' ? '+' : '-'}${entry.amount}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>}
+
+          {/* 🏦 Bank/Card Transactions */}
+          {activeTab === 'bank' && <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
+              <h2>🏦 Add Transaction</h2>
+              <form onSubmit={handleAddBankTxn} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <input type="date" value={newBankTxn.date} onChange={e => setNewBankTxn({...newBankTxn, date: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                <input placeholder="Description" value={newBankTxn.description} onChange={e => setNewBankTxn({...newBankTxn, description: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                <input placeholder="Reference (Optional)" value={newBankTxn.reference} onChange={e => setNewBankTxn({...newBankTxn, reference: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <input type="tel" inputMode="numeric" placeholder="Amount" value={newBankTxn.amount} onChange={e => setNewBankTxn({...newBankTxn, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                  <select value={newBankTxn.payment_type} onChange={e => setNewBankTxn({...newBankTxn, payment_type: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                    <option value="bank_transfer">🏦 Bank Transfer</option>
+                    <option value="credit_card">💳 Credit Card</option>
+                    <option value="debit_card">💳 Debit Card</option>
+                  </select>
+                </div>
+                <select value={newBankTxn.category} onChange={e => setNewBankTxn({...newBankTxn, category: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <option value="other">Other</option>
+                  <option value="materials">Materials</option>
+                  <option value="labour">Labour</option>
+                  <option value="utilities">Utilities</option>
+                  <option value="rent">Rent</option>
+                </select>
+                <button type="submit" style={{ padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>📥 Add Transaction</button>
+              </form>
+            </div>
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
+              <h2>📒 Bank/Card Ledger ({bankTransactions.length})</h2>
+              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                {bankTransactions.map(txn => (
+                  <div key={txn.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <div><strong>{txn.description}</strong><div style={{ fontSize: '0.8rem', color: '#64748b' }}>{txn.payment_type.replace('_', ' ').toUpperCase()} • {txn.reference || 'No ref'} • {new Date(txn.date).toLocaleDateString()}</div></div>
+                    <span style={{ fontWeight: '600', color: '#dc2626' }}>-${txn.amount}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>}
+
+          {/* 📄 Financial Statements */}
+          {activeTab === 'statements' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
+              <h2>📄 Financial Statement</h2>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <select value={reportPeriod} onChange={e => setReportPeriod(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <option value="day">Today</option>
+                  <option value="month">This Month</option>
+                  <option value="year">This Year</option>
+                </select>
+                <button onClick={printFinancialStatement} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>🖨️ Print Statement</button>
+              </div>
+            </div>
+            <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <h3 style={{ marginTop: 0, color: '#1e3a8a' }}>Revenue & Expenses Breakdown</h3>
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#fff', borderRadius: '6px' }}><span>📈 Total Revenue (Invoices)</span><strong style={{ color: '#10b981' }}>${pnl.revenue.toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#fff', borderRadius: '6px' }}><span>📦 Materials Cost</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#fff', borderRadius: '6px' }}><span>👷 Labour Cost</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#f0fdf4', borderRadius: '6px', fontWeight: 'bold' }}><span>💰 Gross Profit</span><strong style={{ color: '#15803d' }}>${(pnl.revenue - bills.filter(b => ['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#fff', borderRadius: '6px' }}><span>📋 Other Expenses</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => !['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px', background: pnl.profit >= 0 ? '#dcfce7' : '#fee2e2', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span>🎯 Net Profit</span><strong style={{ color: pnl.profit >= 0 ? '#166534' : '#991b1b' }}>${pnl.profit.toFixed(2)}</strong></div>
+              </div>
             </div>
           </div>}
 
           {/* 📊 Reports */}
           {activeTab === 'reports' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2>📊 Profit & Loss</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
+              <h2>📊 Quick P&L</h2>
               <select value={reportPeriod} onChange={e => setReportPeriod(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="day">Today</option><option value="month">This Month</option><option value="year">This Year</option></select>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
               <div style={{ background: '#f0fdf4', padding: '1.5rem', borderRadius: '10px', textAlign: 'center' }}><div style={{ fontSize: '0.9rem', color: '#166534' }}>Revenue</div><div style={{ fontSize: '1.8rem', fontWeight: '700', color: '#15803d' }}>${pnl.revenue.toFixed(2)}</div></div>
               <div style={{ background: '#fef2f2', padding: '1.5rem', borderRadius: '10px', textAlign: 'center' }}><div style={{ fontSize: '0.9rem', color: '#991b1b' }}>Expenses</div><div style={{ fontSize: '1.8rem', fontWeight: '700', color: '#b91c1c' }}>${pnl.expenses.toFixed(2)}</div></div>
               <div style={{ background: pnl.profit >= 0 ? '#eff6ff' : '#fef2f2', padding: '1.5rem', borderRadius: '10px', textAlign: 'center' }}><div style={{ fontSize: '0.9rem', color: pnl.profit >= 0 ? '#1e40af' : '#991b1b' }}>Net Profit</div><div style={{ fontSize: '1.8rem', fontWeight: '700', color: pnl.profit >= 0 ? '#2563eb' : '#dc2626' }}>${pnl.profit.toFixed(2)}</div></div>
