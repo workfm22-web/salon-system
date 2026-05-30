@@ -463,46 +463,61 @@ export default function App() {
                   const totalRev = Object.values(dashboardData.revData).reduce((a, b) => a + b, 0);
                   const totalExp = Object.values(dashboardData.expData).reduce((a, b) => a + b, 0);
                   const hasData = totalRev > 0 || totalExp > 0;
-                  const max = Math.max(1000, ...Object.values(dashboardData.revData), ...Object.values(dashboardData.expData));
+                  // Prevent division by zero
+                  const max = Math.max(1000, totalRev, totalExp, ...Object.values(dashboardData.revData), ...Object.values(dashboardData.expData));
 
                   if (!hasData) {
                     return (
                       <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
                         <div style={{ fontSize: '3rem', marginBottom: '10px' }}>📭</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '5px' }}>No data for this period</div>
-                        <div style={{ fontSize: '0.9rem' }}>Create invoices or record expenses to see your financial trends</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '5px' }}>No financial data yet</div>
+                        <div style={{ fontSize: '0.9rem' }}>Create an invoice or record a bill to see your trend chart</div>
                       </div>
                     );
                   }
 
                   return (
                     <>
-                      <div style={{ position: 'relative', height: '200px', marginTop: '1rem' }}>
-                        <div style={{ position: 'absolute', left: '0', top: '0', bottom: '30px', width: '55px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
+                      <div style={{ position: 'relative', height: '180px', marginTop: '1rem' }}>
+                        {/* Y-Axis */}
+                        <div style={{ position: 'absolute', left: '0', top: '0', bottom: '25px', width: '50px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8' }}>
                           {[1, 0.75, 0.5, 0.25, 0].map(pct => (
-                            <div key={pct} style={{ textAlign: 'right', paddingRight: '4px' }}>LKR {((max * pct) / 1000).toFixed(0)}k</div>
+                            <div key={pct} style={{ textAlign: 'right', paddingRight: '6px' }}>LKR {((max * pct) / 1000).toFixed(0)}k</div>
                           ))}
                         </div>
-                        <div style={{ marginLeft: '60px', marginRight: '10px', height: '100%', display: 'flex', alignItems: 'flex-end', gap: '2px', paddingBottom: '30px' }}>
+                        
+                        {/* Bars Area */}
+                        <div style={{ marginLeft: '55px', height: '100%', display: 'flex', alignItems: 'flex-end', gap: '4px', paddingBottom: '25px' }}>
                           {dashboardData.dateRange.map(k => {
                             const rev = dashboardData.revData[k] || 0;
                             const exp = dashboardData.expData[k] || 0;
-                            const revH = rev > 0 ? Math.max((rev / max) * 100, 2) : 0;
-                            const expH = exp > 0 ? Math.max((exp / max) * 100, 2) : 0;
+                            // Force minimum 4px height so bars are always visible
+                            const revH = rev > 0 ? Math.max((rev / max) * 100, 4) : 0;
+                            const expH = exp > 0 ? Math.max((exp / max) * 100, 4) : 0;
                             const label = chartPeriod === 'day' ? k.slice(5) : chartPeriod === 'month' ? k.slice(5) : k;
+                            
                             return (
-                              <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', position: 'relative', minWidth: '35px' }}>
-                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1px', height: '100%' }}>
-                                  {rev > 0 && <div style={{ width: '40%', height: `${revH}%`, background: 'linear-gradient(to top, #10b981, #34d399)', borderRadius: '2px 2px 0 0', cursor: 'pointer', boxShadow: '0 -1px 4px rgba(16,185,129,0.2)' }} title={`Revenue: LKR ${rev.toLocaleString()}`} />}
-                                  {exp > 0 && <div style={{ width: '40%', height: `${expH}%`, background: 'linear-gradient(to top, #ef4444, #f87171)', borderRadius: '2px 2px 0 0', cursor: 'pointer', boxShadow: '0 -1px 4px rgba(239,68,68,0.2)' }} title={`Expenses: LKR ${exp.toLocaleString()}`} />}
+                              <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', minWidth: '28px' }}>
+                                <div style={{ display: 'flex', gap: '2px', width: '100%', justifyContent: 'center', alignItems: 'flex-end' }}>
+                                  {rev > 0 ? (
+                                    <div style={{ width: '7px', height: `${revH}%`, background: '#10b981', borderRadius: '2px 2px 0 0' }} title={`Revenue: LKR ${rev.toLocaleString()}`} />
+                                  ) : (
+                                    <div style={{ width: '7px', height: '2px', background: '#e2e8f0', borderRadius: '1px' }} />
+                                  )}
+                                  {exp > 0 ? (
+                                    <div style={{ width: '7px', height: `${expH}%`, background: '#ef4444', borderRadius: '2px 2px 0 0' }} title={`Expenses: LKR ${exp.toLocaleString()}`} />
+                                  ) : (
+                                    <div style={{ width: '7px', height: '2px', background: '#e2e8f0', borderRadius: '1px' }} />
+                                  )}
                                 </div>
-                                <div style={{ position: 'absolute', bottom: '-22px', fontSize: '0.6rem', color: '#64748b', transform: 'rotate(-45deg)', transformOrigin: 'top left', whiteSpace: 'nowrap', textAlign: 'left', width: '100%' }}>{label}</div>
+                                <div style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '6px', textAlign: 'center', lineHeight: '1.2' }}>{label}</div>
                               </div>
                             );
                           })}
                         </div>
                       </div>
 
+                      {/* Summary */}
                       <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '1.5rem', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
                         <div style={{ textAlign: 'center' }}>
                           <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Revenue</div>
