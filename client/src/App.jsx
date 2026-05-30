@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from './supabaseClient';
 
-// 🏢 SALON CONFIGURATION - Edit these values directly
+// 🏢 SALON CONFIGURATION
 const SALON_CONFIG = {
   name: 'Salon Enoka',
   address: '251/8, Kirula Road, Colombo 5',
@@ -9,11 +9,8 @@ const SALON_CONFIG = {
   //  Replace these with your actual Supabase Storage public URLs
   salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/Enoka%20logo.jpg',
   bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png'
-  loyaltyRate: 10,
-  openTime: '09:00',
-  closeTime: '18:00',
-  currentYear: new Date().getFullYear(),
-  currency: 'LKR'
+  loyaltyRate: 10 // $1 = 1 point
+};
 
 export default function App() {
   // 🔐 Auth
