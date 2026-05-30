@@ -795,7 +795,7 @@ export default function App() {
                   <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
                     <h3 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0369a1' }}>📅 Quick Select Booking</h3>
                     <div style={{ display: 'grid', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
-                      {upcomingBookings.slice(0, 5).map(b => (
+                      {(upcomingBookings || []).slice(0, 5).map(b => (
                         <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', background: '#fff', borderRadius: '6px' }}>
                           <div style={{ fontSize: '0.9rem' }}><strong>{b.customer_name}</strong> • {b.service_name}<div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(b.time).toLocaleString()}</div></div>
                           <button onClick={() => loadBookingToPOS(b)} style={{ padding: '4px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Select Booking</button>
@@ -820,7 +820,7 @@ export default function App() {
                       </div>
                       {posForm.customerType === 'list' ? (
                         <>
-                          <select value={posForm.customerId} onChange={e => { setPosForm({...posForm, customerId: e.target.value}); if(showLoyaltyCard) setShowLoyaltyCard(null); }} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Select Customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.loyalty_points||0} pts)</option>)}</select>
+                          <select value={posForm.customerId} onChange={e => { setPosForm({...posForm, customerId: e.target.value}); if(showLoyaltyCard) setShowLoyaltyCard(null); }} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Select Customer</option>{(customers || []).map(c => <option key={c.id} value={c.id}>{c.name} ({c.loyalty_points||0} pts)</option>)}</select>
                           {posForm.customerId && customers.find(c => c.id == posForm.customerId)?.loyalty_points > 0 && (
                             <div style={{ marginTop: '6px', display: 'flex', gap: '4px', alignItems: 'center' }}>
                               <span style={{ fontSize: '0.8rem', color: '#7c3aed' }}>⭐ {customers.find(c => c.id == posForm.customerId)?.loyalty_points} pts</span>
@@ -838,14 +838,14 @@ export default function App() {
                   <div>
                     <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Services</label>
                     {posForm.items.map((item, idx) => {
-                      const svc = services.find(s => s.id === Number(item.serviceId));
+                      const svc = (services || []).find(s => s.id === Number(item.serviceId));
                       const base = svc ? Number(svc.price) * (Number(item.qty)||0) : 0;
                       const disc = Number(item.discount)||0;
                       const adj = Number(item.adjustment)||0;
                       return (
                         <div key={idx} style={{ background: '#f8fafc', padding: '8px', borderRadius: '6px', marginBottom: '8px' }}>
                           <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '8px', marginBottom: '6px' }}>
-                            <select value={item.serviceId} onChange={e => updateItem(idx, 'serviceId', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Select Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (LKR {s.price})</option>)}</select>
+                            <select value={item.serviceId} onChange={e => updateItem(idx, 'serviceId', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Select Service</option>{(services || []).map(s => <option key={s.id} value={s.id}>{s.name} (LKR {s.price})</option>)}</select>
                             <input type="tel" inputMode="numeric" placeholder="Qty" value={item.qty} onChange={e => updateItem(idx, 'qty', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                             <button type="button" onClick={() => removeItemLine(idx)} style={{ padding: '8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🗑️ Remove</button>
                           </div>
@@ -860,25 +860,31 @@ export default function App() {
                     <button type="button" onClick={addItemLine} style={{ marginTop: '8px', padding: '6px 12px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>+ Add Service Line</button>
                   </div>
                   <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '1.1rem', fontWeight: '700' }}><span>Total Amount:</span><strong>LKR {posSubtotal.toFixed(2)}</strong></div>
-                    {posForm.paymentMethod === 'cash' && <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><input type="tel" inputMode="numeric" placeholder="Cash Tendered" value={posForm.amountTendered} onChange={e => setPosForm({...posForm, amountTendered: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} /><div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem' }}>Change Due</div><strong style={{ fontSize: '1.2rem', color: posChange >= 0 ? '#166534' : '#dc2626' }}>LKR {posChange.toFixed(2)}</strong></div></div>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '1.1rem', fontWeight: '700' }}><span>Total Amount:</span><strong>LKR {(Number(posSubtotal) || 0).toFixed(2)}</strong></div>
+                    {posForm.paymentMethod === 'cash' && <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><input type="tel" inputMode="numeric" placeholder="Cash Tendered" value={posForm.amountTendered} onChange={e => setPosForm({...posForm, amountTendered: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} /><div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem' }}>Change Due</div><strong style={{ fontSize: '1.2rem', color: posChange >= 0 ? '#166534' : '#dc2626' }}>LKR {(Number(posChange) || 0).toFixed(2)}</strong></div></div>}
                   </div>
                   <button type="submit" disabled={isLoading || posSubtotal === 0} style={{ padding: '12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1.1rem', fontWeight: '600' }}>{isLoading ? 'Processing...' : selectedBooking ? '✅ Complete Booking & Invoice' : '✅ Create Invoice'}</button>
                 </form>
               </div>
+              
+              {/* Recent Invoices List */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>📋 Recent Invoices ({invoices.length})</h2>
+                <h2>📋 Recent Invoices ({(invoices || []).length})</h2>
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                  {invoices.map(inv => (
-                    <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
-                      <div><strong>#{inv.id}</strong> • {inv.customer_name}<br/><span style={{ fontSize: '0.8rem', color: '#64748b' }}>{inv.payment_method.toUpperCase()} • {new Date(inv.issued_at).toLocaleDateString()}</span></div>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <span style={{ fontWeight: '600' }}>LKR {inv.total_amount.toFixed(2)}</span>
-                        <button onClick={() => printInvoice(inv)} style={{ padding: '6px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Invoice</button>
-                        <button onClick={() => { if(window.confirm('Delete this invoice?')) { supabase.from('invoices').delete().eq('id', inv.id).then(() => fetchData()); }}} style={{ padding: '6px 10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🗑️ Delete</button>
+                  {(invoices || []).length === 0 ? (
+                    <p style={{ textAlign: 'center', color: '#64748b', padding: '20px' }}>No invoices found.</p>
+                  ) : (
+                    (invoices || []).map(inv => (
+                      <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
+                        <div><strong>#{inv.id}</strong> • {inv.customer_name}<br/><span style={{ fontSize: '0.8rem', color: '#64748b' }}>{(inv.payment_method || 'CASH').toUpperCase()} • {inv.issued_at ? new Date(inv.issued_at).toLocaleDateString() : 'N/A'}</span></div>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <span style={{ fontWeight: '600' }}>LKR {(Number(inv.total_amount) || 0).toFixed(2)}</span>
+                          <button onClick={() => printInvoice(inv)} style={{ padding: '6px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Invoice</button>
+                          <button onClick={() => { if(window.confirm('Delete this invoice?')) { supabase.from('invoices').delete().eq('id', inv.id).then(() => fetchData()); }}} style={{ padding: '6px 10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🗑️ Delete</button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
