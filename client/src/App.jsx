@@ -75,7 +75,7 @@ export default function App() {
   const [ledgerFrom, setLedgerFrom] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; });
   const [ledgerTo, setLedgerTo] = useState(() => new Date().toISOString().split('T')[0]);
 
-  // 🛒 POS
+  //  POS
   const [posForm, setPosForm] = useState({
     customerType: 'list', customerId: '', walkinName: '',
     items: [{ serviceId: '', qty: 1, discount: 0, adjustment: 0 }], paymentMethod: 'cash', amountTendered: ''
@@ -242,7 +242,7 @@ export default function App() {
     catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
   };
 
-  // 🏭 Suppliers & Expenses
+  //  Suppliers & Expenses
   const handleAddSupplier = async (e) => {
     e.preventDefault(); if (!newSupplier.name) return;
     setIsLoading(true);
@@ -331,7 +331,7 @@ export default function App() {
     const inPeriod = (d) => { if (!d) return false; const s = d.includes('T') ? d.split('T')[0] : d; return s >= ledgerFrom && s <= ledgerTo; };
     const buildLedger = (methods, opening, openDate) => {
       let txns = [], tIn = 0, tOut = 0;
-      if (inPeriod(openDate)) txns.push({ date: openDate, desc: '🏦 Opening Balance', amount: opening, type: 'opening' });
+      if (inPeriod(openDate)) txns.push({ date: openDate, desc: ' Opening Balance', amount: opening, type: 'opening' });
       (invoices || []).filter(inv => inv.status === 'paid' && inPeriod(inv.issued_at) && methods.includes(inv.payment_method)).forEach(inv => { const a = Number(inv.total_amount||0); tIn += a; txns.push({ date: inv.issued_at.split('T')[0], desc: `INV #${inv.id} • ${inv.customer_name}`, amount: a, type: 'income' }); });
       (bills || []).filter(b => inPeriod(b.bill_date) && methods.includes(b.payment_method)).forEach(b => { const a = Number(b.amount||0); tOut += a; txns.push({ date: b.bill_date, desc: `BILL • ${b.supplier_name} (${b.category})`, amount: a, type: 'expense' }); });
       txns.sort((a,b) => new Date(a.date)-new Date(b.date));
@@ -345,7 +345,6 @@ export default function App() {
   // 📊 Dashboard Data (14d / 12m / 5y)
   const dashboardData = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
     const generateRange = () => {
       const arr = [];
       if (chartPeriod === 'day') for (let i = 13; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate()-i); arr.push(d.toISOString().split('T')[0]); }
@@ -366,7 +365,13 @@ export default function App() {
       const k = chartPeriod==='day'?d:chartPeriod==='month'?d.slice(0,7):d.slice(0,4);
       if (range.includes(k)) exp[k] = (exp[k]||0) + Number(b.amount||0);
     });
-    return { revData: rev, expData: exp, period: chartPeriod, dateRange: range };
+    
+    // Calculate Totals and Max for Chart
+    const revTotal = Object.values(rev).reduce((a,b)=>a+b,0);
+    const expTotal = Object.values(exp).reduce((a,b)=>a+b,0);
+    const maxVal = Math.max(revTotal, expTotal, 1000);
+
+    return { revData: rev, expData: exp, revTotal, expTotal, maxVal, period: chartPeriod, dateRange: range };
   }, [invoices, bills, chartPeriod]);
 
   const upcomingBookings = (appointments || []).filter(a => a.status === 'booked');
@@ -385,7 +390,7 @@ export default function App() {
             <div style={{ marginBottom: '10px' }}>
               <label style={{ fontSize: '0.85rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>Role</label>
               <select value={signupRole} onChange={e => setSignupRole(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
-                <option value="staff">👩💼 Staff (Bookings, Invoices, Expenses)</option>
+                <option value="staff">👩 Staff (Bookings, Invoices, Expenses)</option>
                 <option value="manager">👔 Manager (Full Access)</option>
                 <option value="admin">👑 Admin (Developer / Super User)</option>
               </select>
@@ -437,104 +442,74 @@ export default function App() {
           {/* 📊 Dashboard */}
           {activeTab === 'dashboard' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {/* Cards */}
               <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-                <div style={{ background: '#f0fdf4', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}><div style={{ fontSize: '2rem' }}>📅</div><div style={{ fontSize: '2rem', fontWeight: '700', color: '#15803d' }}>{(appointments || []).filter(a => a.status === 'booked').length}</div><div style={{ fontSize: '0.9rem', color: '#166534' }}>Active Bookings</div></div>
-                <div style={{ background: '#eff6ff', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}><div style={{ fontSize: '2rem' }}>💵</div><div style={{ fontSize: '2rem', fontWeight: '700', color: '#2563eb' }}>LKR {Object.values(dashboardData.revData).reduce((a,b)=>a+b,0).toFixed(0)}</div><div style={{ fontSize: '0.9rem', color: '#1e40af' }}>{chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? 'This Month' : 'This Year'} Revenue</div></div>
-                <div style={{ background: '#fef2f2', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}><div style={{ fontSize: '2rem' }}>📉</div><div style={{ fontSize: '2rem', fontWeight: '700', color: '#dc2626' }}>LKR {Object.values(dashboardData.expData).reduce((a,b)=>a+b,0).toFixed(0)}</div><div style={{ fontSize: '0.9rem', color: '#991b1b' }}>{chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? 'This Month' : 'This Year'} Expenses</div></div>
+                <div style={{ background: '#f0fdf4', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem' }}>📅</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#15803d' }}>{(appointments || []).filter(a => a.status === 'booked').length}</div>
+                  <div style={{ fontSize: '0.9rem', color: '#166534' }}>Active Bookings</div>
+                </div>
+                <div style={{ background: '#eff6ff', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem' }}>💵</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#2563eb' }}>LKR {(dashboardData.revTotal || 0).toFixed(0)}</div>
+                  <div style={{ fontSize: '0.9rem', color: '#1e40af' }}>{chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? 'This Month' : 'This Year'} Revenue</div>
+                </div>
+                <div style={{ background: '#fef2f2', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: '2rem' }}></div>
+                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#dc2626' }}>LKR {(dashboardData.expTotal || 0).toFixed(0)}</div>
+                  <div style={{ fontSize: '0.9rem', color: '#991b1b' }}>{chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? 'This Month' : 'This Year'} Expenses</div>
+                </div>
               </div>
 
+              {/* Period Buttons */}
               <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
                 {['day', 'month', 'year'].map(p => (
                   <button key={p} onClick={() => setChartPeriod(p)} style={{ padding: '6px 12px', background: chartPeriod === p ? '#3b82f6' : '#f1f5f9', color: chartPeriod === p ? '#fff' : '#334155', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: chartPeriod === p ? '600' : '400' }}>{p.charAt(0).toUpperCase() + p.slice(1)}</button>
                 ))}
               </div>
 
-              {/* Revenue & Expenses Chart */}
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <h3>📊 Financial Overview ({chartPeriod === 'day' ? 'Last 14 Days' : chartPeriod === 'month' ? 'Last 12 Months' : 'Last 5 Years'})</h3>
-                  <div style={{ display: 'flex', gap: '12px', fontSize: '0.85rem' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#10b981' }}></span> Revenue</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#ef4444' }}></span> Expenses</span>
-                  </div>
+              {/* Chart Area */}
+              <div style={{ border: '2px dashed #cbd5e1', borderRadius: '12px', padding: '1.5rem', background: '#fff', minHeight: '300px' }}>
+                <h3 style={{ marginBottom: '1rem' }}>📊 Financial Trend (Debug Mode)</h3>
+                
+                {/* Debug Info */}
+                <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '6px', marginBottom: '20px', fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                  <div>Data Points: {dashboardData.dateRange.length}</div>
+                  <div>Revenue Total: {dashboardData.revTotal}</div>
+                  <div>Expense Total: {dashboardData.expTotal}</div>
                 </div>
 
-                {(() => {
-                  const totalRev = Object.values(dashboardData.revData).reduce((a, b) => a + b, 0);
-                  const totalExp = Object.values(dashboardData.expData).reduce((a, b) => a + b, 0);
-                  const hasData = totalRev > 0 || totalExp > 0;
-                  // Prevent division by zero
-                  const max = Math.max(1000, totalRev, totalExp, ...Object.values(dashboardData.revData), ...Object.values(dashboardData.expData));
+                {/* Chart Container */}
+                <div style={{ display: 'flex', alignItems: 'flex-end', height: '200px', gap: '4px', borderBottom: '1px solid #e2e8f0', paddingBottom: '20px', overflowX: 'auto' }}>
+                  {dashboardData.dateRange.map((k, i) => {
+                    const rev = dashboardData.revData[k] || 0;
+                    const exp = dashboardData.expData[k] || 0;
+                    const maxVal = dashboardData.maxVal || 1;
+                    const revH = maxVal > 0 ? Math.max((rev / maxVal) * 100, rev > 0 ? 5 : 0) : 0;
+                    const expH = maxVal > 0 ? Math.max((exp / maxVal) * 100, exp > 0 ? 5 : 0) : 0;
+                    const label = chartPeriod === 'day' ? k.slice(5) : chartPeriod === 'month' ? k.slice(5) : k;
 
-                  if (!hasData) {
                     return (
-                      <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b' }}>
-                        <div style={{ fontSize: '3rem', marginBottom: '10px' }}>📭</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: '600', marginBottom: '5px' }}>No financial data yet</div>
-                        <div style={{ fontSize: '0.9rem' }}>Create an invoice or record a bill to see your trend chart</div>
+                      <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', minWidth: '20px' }}>
+                        <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '100%' }}>
+                          <div style={{ width: '8px', height: `${revH}%`, background: rev > 0 ? '#10b981' : '#e2e8f0', borderRadius: '2px 2px 0 0', minHeight: rev > 0 ? '5px' : '0' }} title={`Rev: ${rev}`} />
+                          <div style={{ width: '8px', height: `${expH}%`, background: exp > 0 ? '#ef4444' : '#e2e8f0', borderRadius: '2px 2px 0 0', minHeight: exp > 0 ? '5px' : '0' }} title={`Exp: ${exp}`} />
+                        </div>
+                        <div style={{ fontSize: '0.7rem', marginTop: '5px', color: '#64748b' }}>{label}</div>
                       </div>
                     );
-                  }
-
-                  return (
-                    <>
-                      <div style={{ position: 'relative', height: '180px', marginTop: '1rem' }}>
-                        {/* Y-Axis */}
-                        <div style={{ position: 'absolute', left: '0', top: '0', bottom: '25px', width: '50px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94a3b8' }}>
-                          {[1, 0.75, 0.5, 0.25, 0].map(pct => (
-                            <div key={pct} style={{ textAlign: 'right', paddingRight: '6px' }}>LKR {((max * pct) / 1000).toFixed(0)}k</div>
-                          ))}
-                        </div>
-                        
-                        {/* Bars Area */}
-                        <div style={{ marginLeft: '55px', height: '100%', display: 'flex', alignItems: 'flex-end', gap: '4px', paddingBottom: '25px' }}>
-                          {dashboardData.dateRange.map(k => {
-                            const rev = dashboardData.revData[k] || 0;
-                            const exp = dashboardData.expData[k] || 0;
-                            // Force minimum 4px height so bars are always visible
-                            const revH = rev > 0 ? Math.max((rev / max) * 100, 4) : 0;
-                            const expH = exp > 0 ? Math.max((exp / max) * 100, 4) : 0;
-                            const label = chartPeriod === 'day' ? k.slice(5) : chartPeriod === 'month' ? k.slice(5) : k;
-                            
-                            return (
-                              <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%', minWidth: '28px' }}>
-                                <div style={{ display: 'flex', gap: '2px', width: '100%', justifyContent: 'center', alignItems: 'flex-end' }}>
-                                  {rev > 0 ? (
-                                    <div style={{ width: '7px', height: `${revH}%`, background: '#10b981', borderRadius: '2px 2px 0 0' }} title={`Revenue: LKR ${rev.toLocaleString()}`} />
-                                  ) : (
-                                    <div style={{ width: '7px', height: '2px', background: '#e2e8f0', borderRadius: '1px' }} />
-                                  )}
-                                  {exp > 0 ? (
-                                    <div style={{ width: '7px', height: `${expH}%`, background: '#ef4444', borderRadius: '2px 2px 0 0' }} title={`Expenses: LKR ${exp.toLocaleString()}`} />
-                                  ) : (
-                                    <div style={{ width: '7px', height: '2px', background: '#e2e8f0', borderRadius: '1px' }} />
-                                  )}
-                                </div>
-                                <div style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '6px', textAlign: 'center', lineHeight: '1.2' }}>{label}</div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Summary */}
-                      <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '1.5rem', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Revenue</div>
-                          <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#10b981' }}>LKR {totalRev.toLocaleString()}</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Expenses</div>
-                          <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#ef4444' }}>LKR {totalExp.toLocaleString()}</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Net</div>
-                          <div style={{ fontSize: '1.1rem', fontWeight: '700', color: (totalRev - totalExp) >= 0 ? '#10b981' : '#ef4444' }}>LKR {(totalRev - totalExp).toLocaleString()}</div>
-                        </div>
-                      </div>
-                    </>
-                  );
-                })()}
+                  })}
+                </div>
+                
+                {/* Summary Stats */}
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '1.5rem', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Net Profit</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: (dashboardData.revTotal - dashboardData.expTotal) >= 0 ? '#10b981' : '#ef4444' }}>
+                      LKR {((dashboardData.revTotal || 0) - (dashboardData.expTotal || 0)).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -587,7 +562,7 @@ export default function App() {
                   <button type="submit" style={{ padding: '8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🚫 Block Time</button>
                 </form>
                 <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
-                  {(blockouts || []).map(b => (<div key={b.date+b.startTime} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}><div><strong>{new Date(b.date).toLocaleDateString()}</strong> {b.startTime} - {b.endTime} • {b.reason || 'Blocked'}</div><button onClick={() => handleRemoveBlockout(b.date+b.startTime)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>✕ Remove</button></div>))}
+                  {(blockouts || []).map(b => (<div key={b.date+b.startTime} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}><div><strong>{new Date(b.date).toLocaleDateString()}</strong> {b.startTime} - {b.endTime} • {b.reason || 'Blocked'}</div><button onClick={() => handleRemoveBlockout(b.date+b.startTime)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.8rem' }}> Remove</button></div>))}
                 </div>
                 <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>📅 All Bookings ({(appointments || []).length})</h3>
                 <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
@@ -606,7 +581,7 @@ export default function App() {
             </div>
           )}
 
-          {/* 🧾 Invoices */}
+          {/*  Invoices */}
           {activeTab === 'invoices' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
@@ -679,7 +654,7 @@ export default function App() {
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <span style={{ fontWeight: '600' }}>LKR {(Number(inv.total_amount) || 0).toFixed(2)}</span>
                           <button onClick={() => printInvoice(inv)} style={{ padding: '6px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Invoice</button>
-                          <button onClick={() => { if(window.confirm('Delete this invoice?')) { supabase.from('invoices').delete().eq('id', inv.id).then(() => fetchData()); }}} style={{ padding: '6px 10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🗑️ Delete</button>
+                          <button onClick={() => { if(window.confirm('Delete this invoice?')) { supabase.from('invoices').delete().eq('id', inv.id).then(() => fetchData()); }}} style={{ padding: '6px 10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>️ Delete</button>
                         </div>
                       </div>
                     ))
@@ -703,7 +678,7 @@ export default function App() {
                   <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Price Effective From:</label>
                   <input type="date" value={editingService?.effective_from || newService.effective_from} onChange={e => editingService ? setEditingService({...editingService, effective_from: e.target.value}) : setNewService({...newService, effective_from: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                    <button type="submit" disabled={isLoading} style={{ flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : editingService ? '💾 Update Service' : '➕ Add Service'}</button>
+                    <button type="submit" disabled={isLoading} style={{ flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : editingService ? ' Update Service' : '➕ Add Service'}</button>
                     {editingService && <button type="button" onClick={() => setEditingService(null)} style={{ padding: '10px', background: '#94a3b8', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>❌ Cancel</button>}
                   </div>
                 </form>
@@ -729,7 +704,7 @@ export default function App() {
           {activeTab === 'suppliers_expenses' && (
             <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>🏭 Add Supplier</h2>
+                <h2> Add Supplier</h2>
                 <form onSubmit={handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
                   <input placeholder="Supplier Name" value={newSupplier.name} onChange={e => setNewSupplier({...newSupplier, name: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <input placeholder="Contact" value={newSupplier.contact} onChange={e => setNewSupplier({...newSupplier, contact: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
@@ -774,7 +749,7 @@ export default function App() {
             </div>
           )}
 
-          {/* 💵 Cash & Bank Ledgers */}
+          {/*  Cash & Bank Ledgers */}
           {activeTab === 'cash_bank' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '8px' }}>
@@ -785,7 +760,7 @@ export default function App() {
                   <input type="date" value={ledgerTo} onChange={e => setLedgerTo(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button onClick={() => printLedger('cash')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Cash Report</button>
+                  <button onClick={() => printLedger('cash')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>️ Print Cash Report</button>
                   <button onClick={() => printLedger('bank')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Bank Report</button>
                 </div>
               </div>
@@ -857,7 +832,7 @@ export default function App() {
                   if (total === 0) return null;
                   return (<div key={cat} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px', marginLeft: '1rem' }}><span style={{ color: '#64748b' }}>• {cat.charAt(0).toUpperCase() + cat.slice(1)}</span><strong style={{ color: '#dc2626' }}>-LKR {total.toFixed(2)}</strong></div>);
                 })}
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#eff6ff', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span>🎯 Net Profit</span><strong style={{ color: '#1e40af' }}>LKR {((accountingData.cash.totalIn + accountingData.bank.totalIn) - (bills || []).reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#eff6ff', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span> Net Profit</span><strong style={{ color: '#1e40af' }}>LKR {((accountingData.cash.totalIn + accountingData.bank.totalIn) - (bills || []).reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
               </div>
             </div>
           )}
