@@ -311,22 +311,97 @@ export default function App() {
     w.document.write(`<!DOCTYPE html><html><head><title>${title} ${ledgerFrom} to ${ledgerTo}</title><style>body{font-family:Arial,sans-serif;margin:40px auto;padding:20px;max-width:800px}h1{text-align:center;color:#1e3a8a;border-bottom:2px solid #1e3a8a;padding-bottom:10px}.meta{display:flex;justify-content:space-between;margin-bottom:20px;font-size:0.9rem;color:#64748b}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#f8fafc;font-weight:600}tfoot td{font-weight:bold;background:#f0f9ff}.inc{color:#10b981}.exp{color:#dc2626}@media print{body{margin:0}}</style></head><body><h1>${salonName}</h1><p style="text-align:center;font-size:1.1rem">${title} Statement</p><div class="meta"><span>Period: ${ledgerFrom} to ${ledgerTo}</span><span>Opening Balance: LKR ${openBal.toFixed(2)} (as of ${openDate})</span></div><table><thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Balance</th></tr></thead><tbody>${data.txns.map(t => `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.desc}</td><td class="${t.type==='income'?'inc':'exp'}">${t.type==='income'?'+':t.type==='opening'?'':'-'}LKR ${Math.abs(t.amount).toFixed(2)}</td><td>LKR ${t.balance.toFixed(2)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="3" style="text-align:right">Closing Balance:</td><td>LKR ${data.closing.toFixed(2)}</td></tr></tfoot></table><p style="text-align:center;margin-top:30px;font-size:0.8rem;color:#94a3b8">Generated: ${new Date().toLocaleString()}</p><script>window.print();window.close()</script></body></html>`);
   };
 
-  // 💵 Ledger Data
+  // 💵 Ledger Data - STRICT Cash vs Bank separation
   const accountingData = useMemo(() => {
-    const inPeriod = (d) => { if (!d) return false; const s = d.includes('T') ? d.split('T')[0] : d; return s >= ledgerFrom && s <= ledgerTo; };
-    const build = (types, opening, openDate) => {
+    const inPeriod = (d) => { 
+      if (!d) return false; 
+      const s = d.includes('T') ? d.split('T')[0] : d; 
+      return s >= ledgerFrom && s <= ledgerTo; 
+    };
+    
+    const buildLedger = (allowedPaymentMethods, opening, openDate) => {
       let txns = [], tIn = 0, tOut = 0;
-      if (inPeriod(openDate)) txns.push({ date: openDate, desc: '🏦 Opening Balance', amount: opening, type: 'opening' });
-      invoices.filter(inv => inv.status === 'paid' && inPeriod(inv.issued_at) && types.includes(inv.payment_method)).forEach(inv => { const a = Number(inv.total_amount||0); tIn += a; txns.push({ date: inv.issued_at.split('T')[0], desc: `INV #${inv.id} • ${inv.customer_name}`, amount: a, type: 'income' }); });
-      bills.filter(b => inPeriod(b.bill_date) && types.includes(b.payment_method)).forEach(b => { const a = Number(b.amount||0); tOut += a; txns.push({ date: b.bill_date, desc: `BILL • ${b.supplier_name} (${b.category})`, amount: a, type: 'expense' }); });
-      txns.sort((a,b) => new Date(a.date)-new Date(b.date));
+      
+      // Add opening balance as first transaction (only if within period)
+      if (inPeriod(openDate)) {
+        txns.push({ 
+          date: openDate, 
+          desc: '🏦 Opening Balance', 
+          amount: opening, 
+          type: 'opening' 
+        });
+      }
+      
+      // Filter invoices by payment method AND period
+      invoices
+        .filter(inv => 
+          inv.status === 'paid' && 
+          inPeriod(inv.issued_at) && 
+          allowedPaymentMethods.includes(inv.payment_method)
+        )
+        .forEach(inv => { 
+          const a = Number(inv.total_amount || 0); 
+          tIn += a; 
+          txns.push({ 
+            date: inv.issued_at.split('T')[0], 
+            desc: `INV #${inv.id} • ${inv.customer_name}`, 
+            amount: a, 
+            type: 'income' 
+          }); 
+        });
+      
+      // Filter bills by payment method AND period
+      bills
+        .filter(b => 
+          inPeriod(b.bill_date) && 
+          allowedPaymentMethods.includes(b.payment_method)
+        )
+        .forEach(b => { 
+          const a = Number(b.amount || 0); 
+          tOut += a; 
+          txns.push({ 
+            date: b.bill_date, 
+            desc: `BILL • ${b.supplier_name} (${b.category})`, 
+            amount: a, 
+            type: 'expense' 
+          }); 
+        });
+      
+      // Sort by date
+      txns.sort((a,b) => new Date(a.date) - new Date(b.date));
+      
+      // Calculate running balance
       let bal = inPeriod(openDate) ? 0 : opening;
-      txns = txns.map(t => { bal += (t.type==='opening'?t.amount:t.type==='income'?t.amount:-t.amount); return {...t, balance: bal}; });
+      txns = txns.map(t => { 
+        if (t.type === 'opening') {
+          bal = t.amount; // Opening balance sets the starting point
+        } else if (t.type === 'income') {
+          bal += t.amount;
+        } else {
+          bal -= t.amount;
+        }
+        return {...t, balance: bal}; 
+      });
+      
       return { txns, totalIn: tIn, totalOut: tOut, closing: bal };
     };
-    return { cash: build(['cash'], openingCash, cashOpenDate), bank: build(['card','transfer','bank_transfer','credit_card','debit_card'], openingBank, bankOpenDate) };
+    
+    // 🔹 CASH LEDGER: Only 'cash' payments
+    const cashLedger = buildLedger(['cash'], openingCash, cashOpenDate);
+    
+    // 🔹 BANK LEDGER: Only card/bank/transfer payments
+    const bankLedger = buildLedger(
+      ['card', 'transfer', 'bank_transfer', 'credit_card', 'debit_card'], 
+      openingBank, 
+      bankOpenDate
+    );
+    
+    return { 
+      cash: cashLedger, 
+      bank: bankLedger 
+    };
   }, [invoices, bills, ledgerFrom, ledgerTo, openingCash, openingBank, cashOpenDate, bankOpenDate]);
-
+  
   // 📊 Dashboard Data
   const dashboardData = useMemo(() => {
     const now = new Date();
