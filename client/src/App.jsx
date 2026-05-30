@@ -28,9 +28,16 @@ export default function App() {
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [newAppointment, setNewAppointment] = useState({ customerId: '', serviceId: '', time: '' });
   const [newSupplier, setNewSupplier] = useState({ name: '', contact: '' });
-  const [newBill, setNewBill] = useState({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0], category: 'other' });
+  const [newBill, setNewBill] = useState({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0], category: 'other', payment_method: 'cash' });
   const [newService, setNewService] = useState({ name: '', price: '', duration: '', effective_from: new Date().toISOString().split('T')[0] });
   const [editingService, setEditingService] = useState(null);
+
+  // 💰 Opening Balances (Persisted in LocalStorage)
+  const [openingCash, setOpeningCash] = useState(() => parseFloat(localStorage.getItem('salon_opening_cash') || '0'));
+  const [openingBank, setOpeningBank] = useState(() => parseFloat(localStorage.getItem('salon_opening_bank') || '0'));
+
+  useEffect(() => { localStorage.setItem('salon_opening_cash', openingCash); }, [openingCash]);
+  useEffect(() => { localStorage.setItem('salon_opening_bank', openingBank); }, [openingBank]);
 
   // 🛒 POS
   const [posForm, setPosForm] = useState({
@@ -153,10 +160,20 @@ export default function App() {
   const handleAddBill = async (e) => {
     e.preventDefault();
     const finalName = newBill.supplier_name || (newBill.supplier_id ? suppliers.find(s => s.id == newBill.supplier_id)?.name : '');
-    if (!finalName || !newBill.amount) return setError('Supplier & amount required');
+    if (!finalName || !newBill.amount) return setError('Supplier name & amount required');
     setIsLoading(true);
-    try { const { error } = await supabase.from('supplier_bills').insert({ supplier_name: finalName, amount: Number(newBill.amount), description: newBill.description, bill_date: newBill.bill_date, category: newBill.category }); if (error) throw error; await fetchData(); setNewBill({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0], category: 'other' }); }
-    catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
+    try {
+      const { error } = await supabase.from('supplier_bills').insert({
+        supplier_name: finalName,
+        amount: Number(newBill.amount),
+        description: newBill.description,
+        bill_date: newBill.bill_date,
+        category: newBill.category,
+        payment_method: newBill.payment_method
+      });
+      if (error) throw error; await fetchData();
+      setNewBill({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0], category: 'other', payment_method: 'cash' });
+    } catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
   };
 
   // 🛒 POS Logic
@@ -214,7 +231,6 @@ export default function App() {
     const y = now.getFullYear().toString();
     const m = (now.getMonth() + 1).toString().padStart(2, '0');
     const d = now.getDate().toString().padStart(2, '0');
-
     const revenue = invoices.filter(inv => {
       if (inv.status !== 'paid' || !inv.issued_at) return false;
       const [invY, invM, invD] = inv.issued_at.split('-');
@@ -223,29 +239,20 @@ export default function App() {
       if (reportPeriod === 'day' && invY === y && invM === m && invD === d) return true;
       return false;
     }).reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
-
-    const materialCost = bills.filter(b => b.category === 'materials').reduce((sum, b) => sum + Number(b.amount || 0), 0);
-    const labourCost = bills.filter(b => b.category === 'labour').reduce((sum, b) => sum + Number(b.amount || 0), 0);
-    const otherExpenses = bills.filter(b => !['materials', 'labour'].includes(b.category)).reduce((sum, b) => sum + Number(b.amount || 0), 0);
-    const grossProfit = revenue - materialCost - labourCost;
-    const netProfit = grossProfit - otherExpenses;
-
+    const materialCost = bills.filter(b => b.category === 'materials').reduce((s,b)=>s+Number(b.amount||0),0);
+    const labourCost = bills.filter(b => b.category === 'labour').reduce((s,b)=>s+Number(b.amount||0),0);
+    const otherExp = bills.filter(b=>!['materials','labour'].includes(b.category)).reduce((s,b)=>s+Number(b.amount||0),0);
+    const gross = revenue - materialCost - labourCost;
+    const net = gross - otherExp;
     const printWindow = window.open('', '_blank');
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Financial Statement</title>
-      <style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px}h1{text-align:center;color:#1e3a8a;border-bottom:3px solid #1e3a8a;padding-bottom:10px}h2{color:#334155;margin-top:30px;border-bottom:1px solid #cbd5e1;padding-bottom:5px}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9}.total{font-weight:bold;font-size:1.1em;background:#f8fafc;padding:10px;margin-top:10px}.subtotal{background:#f1f5f9;padding:6px}.net-profit{background:#dcfce7;font-size:1.3em;font-weight:bold;padding:12px}@media print{body{margin:0}}</style></head><body>
-      <h1>✂️ Salon Manager<br/>Financial Statement</h1>
-      <p style="text-align:center;color:#64748b">${reportPeriod === 'year' ? 'Year' : reportPeriod === 'month' ? 'Month' : 'Today'}: ${now.toLocaleDateString()}</p>
-      <h2>Revenue</h2>
-      <div class="row"><span>Total Invoices (Paid)</span><span>$${revenue.toFixed(2)}</span></div>
-      <div class="total"><span>Total Revenue</span><span>$${revenue.toFixed(2)}</span></div>
-      <h2>Cost of Sales</h2>
-      <div class="row"><span>Materials</span><span>-$${materialCost.toFixed(2)}</span></div>
-      <div class="row"><span>Labour</span><span>-$${labourCost.toFixed(2)}</span></div>
-      <div class="subtotal"><span>Gross Profit</span><span>$${grossProfit.toFixed(2)}</span></div>
-      <h2>Operating Expenses</h2>
-      <div class="row"><span>Other Expenses</span><span>-$${otherExpenses.toFixed(2)}</span></div>
-      <div class="net-profit"><span>Net Profit</span><span>$${netProfit.toFixed(2)}</span></div>
-      <p style="text-align:center;margin-top:40px;font-size:0.85rem;color:#94a3b8">Generated: ${new Date().toLocaleString()}</p>
+    printWindow.document.write(`<!DOCTYPE html><html><head><title>Financial Statement</title><style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px}h1{text-align:center;color:#1e3a8a;border-bottom:3px solid #1e3a8a;padding-bottom:10px}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9}.total{font-weight:bold;font-size:1.1em;background:#f8fafc;padding:10px;margin-top:10px}.net{background:#dcfce7;font-size:1.3em;font-weight:bold;padding:12px}@media print{body{margin:0}}</style></head><body>
+      <h1>✂️ Salon Manager<br/>Financial Statement</h1><p style="text-align:center;color:#64748b">${reportPeriod}: ${now.toLocaleDateString()}</p>
+      <div class="row"><span>Total Revenue</span><span>$${revenue.toFixed(2)}</span></div>
+      <div class="row"><span>Materials Cost</span><span>-$${materialCost.toFixed(2)}</span></div>
+      <div class="row"><span>Labour Cost</span><span>-$${labourCost.toFixed(2)}</span></div>
+      <div class="total"><span>Gross Profit</span><span>$${gross.toFixed(2)}</span></div>
+      <div class="row"><span>Other Expenses</span><span>-$${otherExp.toFixed(2)}</span></div>
+      <div class="net"><span>Net Profit</span><span>$${net.toFixed(2)}</span></div>
       <script>window.print();window.close()</script></body></html>`);
   };
 
@@ -255,7 +262,6 @@ export default function App() {
     const y = now.getFullYear().toString();
     const m = (now.getMonth() + 1).toString().padStart(2, '0');
     const d = now.getDate().toString().padStart(2, '0');
-
     const revenue = invoices.reduce((sum, inv) => {
       if (inv.status !== 'paid' || !inv.issued_at) return sum;
       const [invY, invM, invD] = inv.issued_at.split('-');
@@ -264,7 +270,6 @@ export default function App() {
       if (reportPeriod === 'day' && invY === y && invM === m && invD === d) return sum + Number(inv.total_amount || 0);
       return sum;
     }, 0);
-
     const expenses = bills.reduce((sum, b) => {
       if (!b.bill_date) return sum;
       const [bY, bM, bD] = b.bill_date.split('-');
@@ -273,7 +278,6 @@ export default function App() {
       if (reportPeriod === 'day' && bY === y && bM === m && bD === d) return sum + Number(b.amount || 0);
       return sum;
     }, 0);
-
     return { revenue, expenses, profit: revenue - expenses };
   };
 
@@ -283,7 +287,6 @@ export default function App() {
     const y = now.getFullYear().toString();
     const m = (now.getMonth() + 1).toString().padStart(2, '0');
     const d = now.getDate().toString().padStart(2, '0');
-
     const inPeriod = (dateStr) => {
       if (!dateStr) return false;
       const [ty, tm, td] = dateStr.split('T')[0].split('-');
@@ -293,37 +296,31 @@ export default function App() {
       return true;
     };
 
-    const cashBookList = [];
-    const bankList = [];
-    let cashIn = 0, cashOut = 0, bankIn = 0, bankOut = 0;
+    const processLedger = (paymentFilter, openingBalance) => {
+      let txns = [], totalIn = 0, totalOut = 0;
+      // Income (Invoices)
+      invoices.filter(inv => inv.status === 'paid' && inv.payment_method === paymentFilter && inPeriod(inv.issued_at)).forEach(inv => {
+        const amt = Number(inv.total_amount || 0);
+        totalIn += amt;
+        txns.push({ date: inv.issued_at.split('T')[0], desc: `INV #${inv.id} • ${inv.customer_name}`, amount: amt, type: 'income', ref: inv.id });
+      });
+      // Expenses (Bills)
+      bills.filter(b => b.payment_method === paymentFilter && inPeriod(b.bill_date)).forEach(b => {
+        const amt = Number(b.amount || 0);
+        totalOut += amt;
+        txns.push({ date: b.bill_date, desc: `BILL • ${b.supplier_name} (${b.category})`, amount: amt, type: 'expense', ref: b.id });
+      });
+      txns.sort((a,b) => new Date(a.date) - new Date(b.date));
+      let runBal = openingBalance;
+      txns = txns.map(t => { runBal += (t.type === 'income' ? t.amount : -t.amount); return { ...t, balance: runBal }; });
+      return { txns, totalIn, totalOut, closing: openingBalance + totalIn - totalOut };
+    };
 
-    // Invoices
-    invoices.filter(inv => inv.status === 'paid' && inPeriod(inv.issued_at)).forEach(inv => {
-      const amt = Number(inv.total_amount || 0);
-      const base = { id: `inv-${inv.id}`, date: inv.issued_at.split('T')[0], description: `Invoice #${inv.id} • ${inv.customer_name}`, amount: amt, type: 'income', ref: inv.id };
-      if (inv.payment_method === 'cash') {
-        cashBookList.push(base);
-        cashIn += amt;
-      } else {
-        bankList.push({ ...base, paymentType: inv.payment_method });
-        bankIn += amt;
-      }
-    });
-
-    // Bills (treated as expenses)
-    bills.filter(b => inPeriod(b.bill_date)).forEach(b => {
-      const amt = Number(b.amount || 0);
-      const base = { id: `bill-${b.id}`, date: b.bill_date, description: `Bill • ${b.supplier_name} ${b.description ? `(${b.description})` : ''}`, amount: amt, type: 'expense', category: b.category || 'other', ref: b.id };
-      cashBookList.push(base); // Bills default to cash tracking
-      cashOut += amt;
-    });
-
-    // Sort newest first
-    cashBookList.sort((a, b) => new Date(b.date) - new Date(a.date));
-    bankList.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-    return { cashBookList, bankList, cashIn, cashOut, bankIn, bankOut };
-  }, [invoices, bills, reportPeriod]);
+    return {
+      cash: processLedger('cash', openingCash),
+      bank: processLedger('bank_transfer', openingBank)
+    };
+  }, [invoices, bills, reportPeriod, openingCash, openingBank]);
 
   const pnl = getPnL();
 
@@ -357,7 +354,7 @@ export default function App() {
         {isLoading && <div style={{ textAlign: 'center', padding: '10px', color: '#64748b' }}>⏳ Syncing...</div>}
         
         <nav style={{ display: 'flex', gap: '6px', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', overflowX: 'auto' }}>
-          {['customers', 'bookings', 'pos', 'invoices', 'services', 'suppliers', 'cashbook', 'bank', 'statements', 'reports'].map(tab => (
+          {['customers', 'bookings', 'pos', 'invoices', 'services', 'suppliers', 'expenses', 'cashbook', 'bank', 'statements'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '8px 12px', background: activeTab === tab ? '#3b82f6' : '#f1f5f9', color: activeTab === tab ? '#fff' : '#334155', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: activeTab === tab ? '600' : '400', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>{tab.charAt(0).toUpperCase() + tab.slice(1)}</button>
           ))}
         </nav>
@@ -505,39 +502,80 @@ export default function App() {
             </div>
           </div>}
 
-          {/* 💵 Cash Book (AUTO-POPULATED) */}
+          {/* 📦 Expenses (Supplier Billing) */}
+          {activeTab === 'expenses' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
+            <h2>📦 Record Supplier Bill</h2>
+            <form onSubmit={handleAddBill} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+              <select value={newBill.supplier_id || ''} onChange={e => setNewBill({...newBill, supplier_id: e.target.value, supplier_name: suppliers.find(s => s.id == e.target.value)?.name || ''})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                <option value="">Select Recurring</option>
+                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              </select>
+              <input placeholder="Or type cash supplier" value={newBill.supplier_id ? '' : newBill.supplier_name} onChange={e => setNewBill({...newBill, supplier_name: e.target.value, supplier_id: ''})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+              <input type="tel" inputMode="numeric" placeholder="Amount ($)" value={newBill.amount} onChange={e => setNewBill({...newBill, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+              <input type="date" value={newBill.bill_date} onChange={e => setNewBill({...newBill, bill_date: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+              <select value={newBill.category} onChange={e => setNewBill({...newBill, category: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                <option value="materials">📦 Materials</option><option value="labour">👷 Labour</option><option value="utilities">💡 Utilities</option><option value="rent">🏢 Rent</option><option value="other">📋 Other</option>
+              </select>
+              <select value={newBill.payment_method} onChange={e => setNewBill({...newBill, payment_method: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                <option value="cash">💵 Cash</option><option value="bank_transfer">🏦 Bank Transfer</option><option value="credit_card">💳 Credit Card</option><option value="debit_card">💳 Debit Card</option>
+              </select>
+              <input placeholder="Description (Optional)" value={newBill.description} onChange={e => setNewBill({...newBill, description: e.target.value})} style={{ gridColumn: '1 / -1', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+              <button type="submit" disabled={isLoading} style={{ gridColumn: '1 / -1', padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '📥 Add Bill'}</button>
+            </form>
+            <div style={{ marginTop: '1.5rem' }}>
+              <h3>Recent Bills</h3>
+              {bills.map(b => <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}><div><strong>{b.supplier_name}</strong> • {b.category} • {b.payment_method.toUpperCase()}<br/><span style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(b.bill_date).toLocaleDateString()}</span></div><span style={{ fontWeight: '600', color: '#dc2626' }}>-${b.amount}</span></div>)}
+            </div>
+          </div>}
+
+          {/* 💵 Cash Book (AUTO-LEDGER) */}
           {activeTab === 'cashbook' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
             <h2>💵 Cash Book</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div style={{ background: '#f0fdf4', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}><div style={{ fontSize: '0.8rem', color: '#166534' }}>Cash In</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#15803d' }}>${accountingData.cashIn.toFixed(2)}</div></div>
-              <div style={{ background: '#fef2f2', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}><div style={{ fontSize: '0.8rem', color: '#991b1b' }}>Cash Out</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#b91c1c' }}>${accountingData.cashOut.toFixed(2)}</div></div>
-              <div style={{ background: '#eff6ff', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}><div style={{ fontSize: '0.8rem', color: '#1e40af' }}>Net Cash</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#2563eb' }}>${(accountingData.cashIn - accountingData.cashOut).toFixed(2)}</div></div>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', alignItems: 'center', background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
+              <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Opening Balance ($):</label>
+              <input type="number" step="0.01" value={openingCash || ''} onChange={e => setOpeningCash(parseFloat(e.target.value || '0'))} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100px' }} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              <div style={{ textAlign: 'center', background: '#f0fdf4', padding: '1rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#166534' }}>Cash In</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#15803d' }}>${accountingData.cash.totalIn.toFixed(2)}</div></div>
+              <div style={{ textAlign: 'center', background: '#fef2f2', padding: '1rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#991b1b' }}>Cash Out</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#b91c1c' }}>${accountingData.cash.totalOut.toFixed(2)}</div></div>
+              <div style={{ textAlign: 'center', background: '#eff6ff', padding: '1rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#1e40af' }}>Closing Balance</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#2563eb' }}>${accountingData.cash.closing.toFixed(2)}</div></div>
             </div>
             <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-              {accountingData.cashBookList.length === 0 ? <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No cash transactions for this period.</div> :
-                accountingData.cashBookList.map(txn => (
-                  <div key={txn.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
-                    <div><strong>{txn.description}</strong><div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(txn.date).toLocaleDateString()} • Ref: #{txn.ref} {txn.category ? `• ${txn.category}` : ''}</div></div>
-                    <span style={{ fontWeight: '600', color: txn.type === 'income' ? '#10b981' : '#dc2626' }}>{txn.type === 'income' ? '+' : '-'}${txn.amount.toFixed(2)}</span>
+              {accountingData.cash.txns.length === 0 ? <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No cash transactions for this period.</div> :
+                accountingData.cash.txns.map(txn => (
+                  <div key={txn.ref} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <div><strong>{txn.type === 'income' ? '📈' : '📉'} {txn.desc}</strong><div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(txn.date).toLocaleDateString()} • Ref #{txn.ref}</div></div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontWeight: '600', color: txn.type === 'income' ? '#10b981' : '#dc2626' }}>{txn.type === 'income' ? '+' : '-'}${txn.amount.toFixed(2)}</span>
+                      <div style={{ fontSize: '0.8rem', color: '#475569' }}>Bal: ${txn.balance.toFixed(2)}</div>
+                    </div>
                   </div>
                 ))
               }
             </div>
           </div>}
 
-          {/* 🏦 Bank Ledger (AUTO-POPULATED) */}
+          {/* 🏦 Bank Ledger (AUTO-LEDGER) */}
           {activeTab === 'bank' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
             <h2>🏦 Bank & Card Ledger</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-              <div style={{ background: '#eff6ff', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}><div style={{ fontSize: '0.8rem', color: '#1e40af' }}>Bank/Card In</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#2563eb' }}>${accountingData.bankIn.toFixed(2)}</div></div>
-              <div style={{ background: '#fef2f2', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}><div style={{ fontSize: '0.8rem', color: '#991b1b' }}>Bank Out</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#b91c1c' }}>$0.00</div></div>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', alignItems: 'center', background: '#f8fafc', padding: '10px', borderRadius: '8px' }}>
+              <label style={{ fontWeight: '600', fontSize: '0.9rem' }}>Opening Balance ($):</label>
+              <input type="number" step="0.01" value={openingBank || ''} onChange={e => setOpeningBank(parseFloat(e.target.value || '0'))} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100px' }} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+              <div style={{ textAlign: 'center', background: '#f0fdf4', padding: '1rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#166534' }}>Bank In</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#15803d' }}>${accountingData.bank.totalIn.toFixed(2)}</div></div>
+              <div style={{ textAlign: 'center', background: '#fef2f2', padding: '1rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#991b1b' }}>Bank Out</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#b91c1c' }}>${accountingData.bank.totalOut.toFixed(2)}</div></div>
+              <div style={{ textAlign: 'center', background: '#eff6ff', padding: '1rem', borderRadius: '8px' }}><div style={{ fontSize: '0.8rem', color: '#1e40af' }}>Closing Balance</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#2563eb' }}>${accountingData.bank.closing.toFixed(2)}</div></div>
             </div>
             <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-              {accountingData.bankList.length === 0 ? <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No electronic transactions for this period.</div> :
-                accountingData.bankList.map(txn => (
-                  <div key={txn.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
-                    <div><strong>{txn.description}</strong><div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(txn.date).toLocaleDateString()} • {txn.paymentType.toUpperCase()} • Ref: #{txn.ref}</div></div>
-                    <span style={{ fontWeight: '600', color: '#10b981' }}>+${txn.amount.toFixed(2)}</span>
+              {accountingData.bank.txns.length === 0 ? <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No bank/card transactions for this period.</div> :
+                accountingData.bank.txns.map(txn => (
+                  <div key={txn.ref} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <div><strong>{txn.type === 'income' ? '📈' : '📉'} {txn.desc}</strong><div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(txn.date).toLocaleDateString()} • Ref #{txn.ref}</div></div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontWeight: '600', color: txn.type === 'income' ? '#10b981' : '#dc2626' }}>{txn.type === 'income' ? '+' : '-'}${txn.amount.toFixed(2)}</span>
+                      <div style={{ fontSize: '0.8rem', color: '#475569' }}>Bal: ${txn.balance.toFixed(2)}</div>
+                    </div>
                   </div>
                 ))
               }
@@ -564,19 +602,6 @@ export default function App() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#fff', borderRadius: '6px' }}><span>📋 Other Expenses</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => !['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px', background: pnl.profit >= 0 ? '#dcfce7' : '#fee2e2', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span>🎯 Net Profit</span><strong style={{ color: pnl.profit >= 0 ? '#166534' : '#991b1b' }}>${pnl.profit.toFixed(2)}</strong></div>
               </div>
-            </div>
-          </div>}
-
-          {/* 📊 Reports */}
-          {activeTab === 'reports' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
-              <h2>📊 Quick P&L</h2>
-              <select value={reportPeriod} onChange={e => setReportPeriod(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="day">Today</option><option value="month">This Month</option><option value="year">This Year</option></select>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
-              <div style={{ background: '#f0fdf4', padding: '1.5rem', borderRadius: '10px', textAlign: 'center' }}><div style={{ fontSize: '0.9rem', color: '#166534' }}>Revenue</div><div style={{ fontSize: '1.8rem', fontWeight: '700', color: '#15803d' }}>${pnl.revenue.toFixed(2)}</div></div>
-              <div style={{ background: '#fef2f2', padding: '1.5rem', borderRadius: '10px', textAlign: 'center' }}><div style={{ fontSize: '0.9rem', color: '#991b1b' }}>Expenses</div><div style={{ fontSize: '1.8rem', fontWeight: '700', color: '#b91c1c' }}>${pnl.expenses.toFixed(2)}</div></div>
-              <div style={{ background: pnl.profit >= 0 ? '#eff6ff' : '#fef2f2', padding: '1.5rem', borderRadius: '10px', textAlign: 'center' }}><div style={{ fontSize: '0.9rem', color: pnl.profit >= 0 ? '#1e40af' : '#991b1b' }}>Net Profit</div><div style={{ fontSize: '1.8rem', fontWeight: '700', color: pnl.profit >= 0 ? '#2563eb' : '#dc2626' }}>${pnl.profit.toFixed(2)}</div></div>
             </div>
           </div>}
         </main>
