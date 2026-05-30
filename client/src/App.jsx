@@ -455,7 +455,7 @@ export default function App() {
                   <div style={{ fontSize: '0.9rem', color: '#1e40af' }}>{chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? 'This Month' : 'This Year'} Revenue</div>
                 </div>
                 <div style={{ background: '#fef2f2', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem' }}></div>
+                  <div style={{ fontSize: '2rem' }}>📉</div>
                   <div style={{ fontSize: '2rem', fontWeight: '700', color: '#dc2626' }}>LKR {(dashboardData.expTotal || 0).toFixed(0)}</div>
                   <div style={{ fontSize: '0.9rem', color: '#991b1b' }}>{chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? 'This Month' : 'This Year'} Expenses</div>
                 </div>
