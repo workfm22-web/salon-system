@@ -486,6 +486,8 @@ export default function App() {
     return { revData, expData, period: chartPeriod, dateRange };
   }, [invoices, bills, chartPeriod]);
 
+  const upcomingBookings = appointments.filter(a => a.status === 'booked');
+
   // 🔐 Login
   if (!session) {
     return (
@@ -504,7 +506,7 @@ export default function App() {
 
   // 📊 Dashboard
   return (
-    <div style={{ minHeight: '100vh', background: '#717D9D', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', background: '#fab5ac', position: 'relative' }}>
       <style>{`
         @media (max-width: 640px) {
           .main-container { padding: 0.5rem !important; }
@@ -521,7 +523,7 @@ export default function App() {
 
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundImage: 'url("https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1920&q=80")', backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.05, zIndex: -1 }} />
       
-      <div style={{ background: '#13265C', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', flexWrap: 'wrap', gap: '10px' }}>
+      <div style={{ background: '#1f110f', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {salonLogo && <img src={salonLogo} alt="Logo" style={{ height: '40px', borderRadius: '8px' }} />}
           <div>
