@@ -50,7 +50,7 @@ export default function App() {
   const [bills, setBills] = useState([]);
 
   // 📝 Forms
-  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', gender: '', age: '' });
   const [newAppointment, setNewAppointment] = useState({ customerId: '', serviceId: '', time: '' });
   const [newSupplier, setNewSupplier] = useState({ name: '', contact: '' });
   const [newBill, setNewBill] = useState({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0], category: 'other', payment_method: 'cash' });
@@ -139,8 +139,22 @@ export default function App() {
   };
   const handleEditCustomer = async (id) => {
     const c = customers.find(x => x.id === id); if (!c) return;
-    const name = prompt('Name:', c.name); const phone = prompt('Phone:', c.phone); if (name === null || phone === null) return;
-    setIsLoading(true); try { const { error } = await supabase.from('customers').update({ name, phone }).eq('id', id); if (error) throw error; await fetchData(); } catch (err) { setError(err.message); } finally { setIsLoading(false); }
+    const name = prompt('Name:', c.name);
+    const phone = prompt('Phone:', c.phone);
+    if (name === null || phone === null) return;
+    const gender = prompt('Gender (Male/Female/Other):', c.gender || '');
+    const age = prompt('Age:', c.age || '');
+    
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.from('customers').update({
+        name, phone,
+        gender: gender || null,
+        age: age ? Number(age) : null
+      }).eq('id', id);
+      if (error) throw error;
+      await fetchData();
+    } catch (err) { setError(err.message); } finally { setIsLoading(false); }
   };
   const handleDeleteCustomer = async (id) => {
     if (!window.confirm('Delete this customer?')) return; setIsLoading(true);
@@ -371,8 +385,7 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {salonLogo && <img src={salonLogo} alt="Salon Logo" style={{ height: '40px', borderRadius: '8px' }} />}
           <div>
-            <input value={salonName} onChange={(e) => setSalonName(e.target.value)}
-              style={{ background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.3)', color: '#fff', fontSize: '1.5rem', fontWeight: '700', width: '250px', padding: '4px' }} />
+                          <span style={{ color: '#fff', fontSize: '1.5rem', fontWeight: '700', padding: '4px 0' }}>{salonName}</span>
             <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', marginTop: '2px' }}>
               {SALON_CONFIG.address} • {SALON_CONFIG.telephone}
             </div>
@@ -408,6 +421,15 @@ export default function App() {
                 <form onSubmit={handleAddCustomer} style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
                   <input value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} placeholder="Name" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <input value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} placeholder="Phone" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                    <select value={newCustomer.gender} onChange={e => setNewCustomer({...newCustomer, gender: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                      <option value="">Gender (Optional)</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <input type="number" min="0" max="120" value={newCustomer.age} onChange={e => setNewCustomer({...newCustomer, age: e.target.value})} placeholder="Age (Optional)" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                  </div>
                   <button type="submit" disabled={isLoading} style={{ padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '+ Add Customer'}</button>
                 </form>
                 
@@ -568,14 +590,19 @@ export default function App() {
           {activeTab === 'suppliers_expenses' && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>🏭 Suppliers ({suppliers.length})</h2>
-                {suppliers.map(s => <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}><strong>{s.name}</strong><span style={{ color: '#64748b', fontSize: '0.8rem' }}>{s.contact}</span></div>)}
-                <form onSubmit={handleAddSupplier} style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <h2>🏭 Add Supplier</h2>
+                <form onSubmit={handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
                   <input placeholder="Supplier Name" value={newSupplier.name} onChange={e => setNewSupplier({...newSupplier, name: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <input placeholder="Contact (Optional)" value={newSupplier.contact} onChange={e => setNewSupplier({...newSupplier, contact: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   <button type="submit" style={{ padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Save Supplier</button>
                 </form>
+                
+                <h3>Existing Suppliers ({suppliers.length})</h3>
+                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  {suppliers.map(s => <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}><strong>{s.name}</strong><span style={{ color: '#64748b', fontSize: '0.8rem' }}>{s.contact}</span></div>)}
+                </div>
               </div>
+              
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                 <h2>📦 Record Bill</h2>
                 <form onSubmit={handleAddBill} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
@@ -589,7 +616,7 @@ export default function App() {
                     <option value="materials">📦 Materials</option><option value="labour">👷 Labour</option><option value="utilities">💡 Utilities</option><option value="rent">🏢 Rent</option><option value="other">📋 Other</option>
                   </select>
                   <select value={newBill.payment_method} onChange={e => setNewBill({...newBill, payment_method: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                    <option value="cash">💵 Cash</option><option value="bank_transfer"> Bank Transfer</option><option value="credit_card">💳 Credit Card</option><option value="debit_card">💳 Debit Card</option><option value="card">💳 Card</option>
+                    <option value="cash">💵 Cash</option><option value="bank_transfer">🏦 Bank Transfer</option><option value="credit_card">💳 Credit Card</option><option value="debit_card">💳 Debit Card</option><option value="card">💳 Card</option>
                   </select>
                   <input placeholder="Description (Optional)" value={newBill.description} onChange={e => setNewBill({...newBill, description: e.target.value})} style={{ gridColumn: '1 / -1', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   <button type="submit" disabled={isLoading} style={{ gridColumn: '1 / -1', padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '📥 Add Bill'}</button>
