@@ -9,6 +9,11 @@ const SALON_CONFIG = {
   //  Replace these with your actual Supabase Storage public URLs
   salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/Enoka%20logo.jpg',
   bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png'
+  loyaltyRate: 10,
+  openTime: '09:00',
+  closeTime: '18:00',
+  currentYear: new Date().getFullYear(),
+  currency: 'LKR'
 };
 
 export default function App() {
@@ -28,7 +33,7 @@ export default function App() {
   useEffect(() => localStorage.setItem('salon_logo', salonLogo), [salonLogo]);
   useEffect(() => localStorage.setItem('bizhub_logo', bizHubLogo), [bizHubLogo]);
 
-  // ⏰ Time
+  //  Time
   const [currentTime, setCurrentTime] = useState(new Date());
   useEffect(() => { const t = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(t); }, []);
 
@@ -37,6 +42,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [chartPeriod, setChartPeriod] = useState('month');
+  const [bookingsFilter, setBookingsFilter] = useState(''); // ✅ ADDED THIS LINE
 
   // 📦 Data
   const [customers, setCustomers] = useState([]);
@@ -72,7 +78,7 @@ export default function App() {
   useEffect(() => localStorage.setItem('salon_cash_date', cashOpenDate), [cashOpenDate]);
   useEffect(() => localStorage.setItem('salon_bank_date', bankOpenDate), [bankOpenDate]);
 
-  // 📅 Ledger Range
+  //  Ledger Range
   const [ledgerFrom, setLedgerFrom] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; });
   const [ledgerTo, setLedgerTo] = useState(() => new Date().toISOString().split('T')[0]);
 
@@ -104,7 +110,7 @@ export default function App() {
     setCustomers([]); setServices([]); setAppointments([]); setInvoices([]); setSuppliers([]); setBills([]); setBlockouts([]);
   };
 
-  // 🔌 Init
+  //  Init
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); if (session) fetchData(); });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setSession(session); if (session) fetchData(); });
@@ -167,7 +173,7 @@ export default function App() {
     try { const { error } = await supabase.from('customers').delete().eq('id', id); if (error) throw error; await fetchData(); } catch (err) { setError(err.message); } finally { setIsLoading(false); }
   };
 
-  // 📅 Bookings Validation
+  //  Bookings Validation
   const isTimeBlocked = (bookingDateTime) => {
     const bDate = bookingDateTime.split('T')[0];
     const bTime = bookingDateTime.split('T')[1].slice(0, 5);
@@ -303,7 +309,7 @@ export default function App() {
     const openDate = type === 'cash' ? cashOpenDate : bankOpenDate;
     const title = type === 'cash' ? 'Cash Book' : 'Bank & Card Ledger';
     const w = window.open('', '_blank');
-    w.document.write(`<!DOCTYPE html><html><head><title>${title} ${ledgerFrom} to ${ledgerTo}</title><style>body{font-family:Arial,sans-serif;margin:40px auto;padding:20px;max-width:800px}h1{text-align:center;color:#1e3a8a;border-bottom:2px solid #1e3a8a;padding-bottom:10px}.meta{display:flex;justify-content:space-between;margin-bottom:20px;font-size:0.9rem;color:#64748b}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#f8fafc;font-weight:600}tfoot td{font-weight:bold;background:#f0f9ff}.inc{color:#10b981}.exp{color:#dc2626}@media print{body{margin:0}}</style></head><body><h1>${salonName}</h1><p style="text-align:center;font-size:1.1rem">${title} Statement</p><div class="meta"><span>Period: ${ledgerFrom} to ${ledgerTo}</span><span>Opening Balance: LKR ${openBal.toFixed(2)} (as of ${openDate})</span></div><table><thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Balance</th></tr></thead><tbody>${data.txns.map(t => `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.desc}</td><td class="${t.type==='income'?'inc':'exp'}">${t.type==='income'?'+':t.type==='opening'?'🏦':'-'}LKR ${Math.abs(t.amount).toFixed(2)}</td><td>LKR ${t.balance.toFixed(2)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="3" style="text-align:right">Closing Balance:</td><td>LKR ${data.closing.toFixed(2)}</td></tr></tfoot></table><p style="text-align:center;margin-top:30px;font-size:0.8rem;color:#94a3b8">Generated: ${new Date().toLocaleString()}</p><script>window.print();window.close()</script></body></html>`);
+    w.document.write(`<!DOCTYPE html><html><head><title>${title} ${ledgerFrom} to ${ledgerTo}</title><style>body{font-family:Arial,sans-serif;margin:40px auto;padding:20px;max-width:800px}h1{text-align:center;color:#1e3a8a;border-bottom:2px solid #1e3a8a;padding-bottom:10px}.meta{display:flex;justify-content:space-between;margin-bottom:20px;font-size:0.9rem;color:#64748b}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#f8fafc;font-weight:600}tfoot td{font-weight:bold;background:#f0f9ff}.inc{color:#10b981}.exp{color:#dc2626}@media print{body{margin:0}}</style></head><body><h1>${salonName}</h1><p style="text-align:center;font-size:1.1rem">${title} Statement</p><div class="meta"><span>Period: ${ledgerFrom} to ${ledgerTo}</span><span>Opening Balance: LKR ${openBal.toFixed(2)} (as of ${openDate})</span></div><table><thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Balance</th></tr></thead><tbody>${data.txns.map(t => `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.desc}</td><td class="${t.type==='income'?'inc':'exp'}">${t.type==='income'?'+':t.type==='opening'?'':'-'}LKR ${Math.abs(t.amount).toFixed(2)}</td><td>LKR ${t.balance.toFixed(2)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="3" style="text-align:right">Closing Balance:</td><td>LKR ${data.closing.toFixed(2)}</td></tr></tfoot></table><p style="text-align:center;margin-top:30px;font-size:0.8rem;color:#94a3b8">Generated: ${new Date().toLocaleString()}</p><script>window.print();window.close()</script></body></html>`);
   };
 
   // 💵 Ledger Data
@@ -406,7 +412,7 @@ export default function App() {
       </div>
       
       <div className="main-container" style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', fontFamily: 'system-ui' }}>
-        {error && <div style={{ background: '#fef2f2', color: '#991b1b', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>⚠️ {error}</div>}
+        {error && <div style={{ background: '#fef2f2', color: '#991b1b', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>️ {error}</div>}
         {isLoading && <div style={{ textAlign: 'center', padding: '10px', color: '#64748b' }}>⏳ Syncing...</div>}
         
         <nav className="nav-tabs" style={{ display: 'flex', gap: '6px', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', overflowX: 'auto' }}>
@@ -418,7 +424,7 @@ export default function App() {
         </nav>
 
         <main>
-          {/* 📊 Dashboard */}
+          {/*  Dashboard */}
           {activeTab === 'dashboard' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
@@ -433,7 +439,7 @@ export default function App() {
                   <div style={{ fontSize: '0.9rem', color: '#1e40af' }}>{dashboardData.period === 'day' ? 'Today' : dashboardData.period === 'month' ? 'This Month' : 'This Year'} Revenue</div>
                 </div>
                 <div style={{ background: '#fef2f2', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem' }}>📉</div>
+                  <div style={{ fontSize: '2rem' }}></div>
                   <div style={{ fontSize: '2rem', fontWeight: '700', color: '#dc2626' }}>LKR {dashboardData.expData[dashboardData.period === 'day' ? 'Today' : Object.keys(dashboardData.expData).pop()]?.toFixed(0) || '0'}</div>
                   <div style={{ fontSize: '0.9rem', color: '#991b1b' }}>{dashboardData.period === 'day' ? 'Today' : dashboardData.period === 'month' ? 'This Month' : 'This Year'} Expenses</div>
                 </div>
@@ -447,7 +453,7 @@ export default function App() {
 
               {/* Revenue Chart */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h3>📈 Revenue Trend</h3>
+                <h3> Revenue Trend</h3>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '150px', marginTop: '1rem' }}>
                   {Object.entries(dashboardData.revData).map(([k, v], i) => {
                     const max = Math.max(...Object.values(dashboardData.revData), 1);
@@ -569,7 +575,7 @@ export default function App() {
                   ))}
                 </div>
 
-                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>📅 All Bookings ({appointments.length})</h3>
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}> All Bookings ({appointments.length})</h3>
                 <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
                   <input placeholder="🔍 Filter bookings..." value={bookingsFilter} onChange={e => setBookingsFilter(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   {appointments.filter(a => a.customer_name?.toLowerCase().includes(bookingsFilter.toLowerCase()) || a.service_name?.toLowerCase().includes(bookingsFilter.toLowerCase())).map(a => (
@@ -592,7 +598,7 @@ export default function App() {
           {activeTab === 'invoices' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>🧾 Create Invoice</h2>
+                <h2> Create Invoice</h2>
                 {upcomingBookings.length > 0 && !selectedBooking && (
                   <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
                     <h3 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0369a1' }}>📅 Quick Select Booking</h3>
@@ -706,7 +712,7 @@ export default function App() {
                 </form>
               </div>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>📋 Services ({services.length})</h2>
+                <h2> Services ({services.length})</h2>
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {services.map(s => (
                     <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
@@ -726,7 +732,7 @@ export default function App() {
           {activeTab === 'suppliers_expenses' && (
             <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>🏭 Add Supplier</h2>
+                <h2> Add Supplier</h2>
                 <form onSubmit={handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
                   <input placeholder="Supplier Name" value={newSupplier.name} onChange={e => setNewSupplier({...newSupplier, name: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <input placeholder="Contact" value={newSupplier.contact} onChange={e => setNewSupplier({...newSupplier, contact: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
@@ -751,7 +757,7 @@ export default function App() {
                     {expenseTypes.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                   </select>
                   <select value={newBill.payment_method} onChange={e => setNewBill({...newBill, payment_method: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                    <option value="cash">💵 Cash</option><option value="bank_transfer">🏦 Bank</option><option value="credit_card">💳 Credit</option><option value="debit_card">💳 Debit</option><option value="card">💳 Card</option>
+                    <option value="cash">💵 Cash</option><option value="bank_transfer"> Bank</option><option value="credit_card">💳 Credit</option><option value="debit_card">💳 Debit</option><option value="card">💳 Card</option>
                   </select>
                   <input placeholder="Description" value={newBill.description} onChange={e => setNewBill({...newBill, description: e.target.value})} style={{ gridColumn: '1 / -1', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   <button type="submit" disabled={isLoading} style={{ gridColumn: '1 / -1', padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '📥 Add Bill'}</button>
@@ -825,7 +831,7 @@ export default function App() {
                           <tr key={txn.date+txn.amount} style={{ borderBottom: '1px solid #f1f5f9', background: txn.type === 'opening' ? '#fef3c7' : 'transparent' }}>
                             <td style={{ padding: '8px' }}>{new Date(txn.date).toLocaleDateString()}</td>
                             <td style={{ padding: '8px' }}>{txn.desc}</td>
-                            <td style={{ padding: '8px', textAlign: 'right', color: txn.type === 'income' ? '#10b981' : txn.type === 'opening' ? '#d97706' : '#dc2626', fontWeight: '600' }}>{txn.type === 'income' ? '+' : txn.type === 'opening' ? '🏦' : '-'}LKR {Math.abs(txn.amount).toFixed(2)}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', color: txn.type === 'income' ? '#10b981' : txn.type === 'opening' ? '#d97706' : '#dc2626', fontWeight: '600' }}>{txn.type === 'income' ? '+' : txn.type === 'opening' ? '' : '-'}LKR {Math.abs(txn.amount).toFixed(2)}</td>
                             <td style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>LKR {txn.balance.toFixed(2)}</td>
                           </tr>
                         ))}
@@ -887,7 +893,7 @@ export default function App() {
               <div style={{ display: 'grid', gap: '0.8rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📈 Revenue</span><strong style={{ color: '#10b981' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn).toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📦 Materials</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>👷 Labour</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span> Labour</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f0fdf4', borderRadius: '6px', fontWeight: 'bold' }}><span>💰 Gross Profit</span><strong style={{ color: '#15803d' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn - bills.filter(b => b.category === 'materials' || b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📋 Other</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => !['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#eff6ff', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span>🎯 Net Profit</span><strong style={{ color: '#1e40af' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn - bills.reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
