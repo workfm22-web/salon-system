@@ -6,9 +6,9 @@ const SALON_CONFIG = {
   name: 'Salon Enoka',
   address: '251/8, Kirula Road, Colombo 5',
   telephone: '+94 112 369 777',
+  //  Replace these with your actual Supabase Storage public URLs
   salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/Enoka%20logo.jpg',
-  bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png',
-  loyaltyRate: 10,
+  bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png',  loyaltyRate: 10,
   openTime: '09:00',
   closeTime: '18:00',
   currentYear: new Date().getFullYear(),
@@ -41,7 +41,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [chartPeriod, setChartPeriod] = useState('month');
-  const [bookingsFilter, setBookingsFilter] = useState(''); // ✅ ADDED THIS LINE
+  const [bookingsFilter, setBookingsFilter] = useState('');
 
   // 📦 Data
   const [customers, setCustomers] = useState([]);
@@ -347,11 +347,11 @@ export default function App() {
 
     const revData = {}; const expData = {};
     invoices.filter(inv => inv.status === 'paid' && filterByPeriod(inv.issued_at)).forEach(inv => {
-      const k = chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? inv.issued_at.slice(0,7) : inv.issued_at.slice(0,4);
+      const k = chartPeriod === 'day' ? todayStr : chartPeriod === 'month' ? monthStr : y;
       revData[k] = (revData[k] || 0) + Number(inv.total_amount || 0);
     });
     bills.filter(b => filterByPeriod(b.bill_date)).forEach(b => {
-      const k = chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? b.bill_date.slice(0,7) : b.bill_date.slice(0,4);
+      const k = chartPeriod === 'day' ? todayStr : chartPeriod === 'month' ? monthStr : y;
       expData[k] = (expData[k] || 0) + Number(b.amount || 0);
     });
 
@@ -389,7 +389,6 @@ export default function App() {
           .table-wrap { font-size: 0.85rem !important; }
           th, td { padding: 6px 4px !important; }
           .dashboard-grid { grid-template-columns: 1fr !important; }
-          .mobile-stack { order: 1; } .mobile-stack-2 { order: 2; }
         }
         @media (min-width: 641px) and (max-width: 1024px) { .card-grid { grid-template-columns: repeat(2, 1fr) !important; } }
       `}</style>
@@ -434,13 +433,13 @@ export default function App() {
                 </div>
                 <div style={{ background: '#eff6ff', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
                   <div style={{ fontSize: '2rem' }}>💵</div>
-                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#2563eb' }}>LKR {dashboardData.revData[dashboardData.period === 'day' ? 'Today' : Object.keys(dashboardData.revData).pop()]?.toFixed(0) || '0'}</div>
-                  <div style={{ fontSize: '0.9rem', color: '#1e40af' }}>{dashboardData.period === 'day' ? 'Today' : dashboardData.period === 'month' ? 'This Month' : 'This Year'} Revenue</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#2563eb' }}>LKR {Object.values(dashboardData.revData).reduce((a,b)=>a+b,0).toFixed(0)}</div>
+                  <div style={{ fontSize: '0.9rem', color: '#1e40af' }}>{chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? 'This Month' : 'This Year'} Revenue</div>
                 </div>
                 <div style={{ background: '#fef2f2', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
                   <div style={{ fontSize: '2rem' }}></div>
-                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#dc2626' }}>LKR {dashboardData.expData[dashboardData.period === 'day' ? 'Today' : Object.keys(dashboardData.expData).pop()]?.toFixed(0) || '0'}</div>
-                  <div style={{ fontSize: '0.9rem', color: '#991b1b' }}>{dashboardData.period === 'day' ? 'Today' : dashboardData.period === 'month' ? 'This Month' : 'This Year'} Expenses</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#dc2626' }}>LKR {Object.values(dashboardData.expData).reduce((a,b)=>a+b,0).toFixed(0)}</div>
+                  <div style={{ fontSize: '0.9rem', color: '#991b1b' }}>{chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? 'This Month' : 'This Year'} Expenses</div>
                 </div>
               </div>
 
@@ -452,15 +451,16 @@ export default function App() {
 
               {/* Revenue Chart */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h3> Revenue Trend</h3>
+                <h3>📈 Revenue Trend ({chartPeriod === 'day' ? 'Daily' : chartPeriod === 'month' ? 'Monthly' : 'Yearly'})</h3>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '150px', marginTop: '1rem' }}>
                   {Object.entries(dashboardData.revData).map(([k, v], i) => {
                     const max = Math.max(...Object.values(dashboardData.revData), 1);
                     const h = Math.max((v / max) * 100, 5);
+                    const label = chartPeriod === 'day' ? k.slice(5) : chartPeriod === 'month' ? k.slice(5) : k;
                     return (
                       <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                         <div style={{ width: '100%', height: `${h}%`, background: 'linear-gradient(to top, #3b82f6, #60a5fa)', borderRadius: '4px 4px 0 0', minWidth: '30px' }}></div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{k}</div>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{label}</div>
                         <div style={{ fontSize: '0.75rem', fontWeight: '600' }}>LKR {(v/1000).toFixed(1)}k</div>
                       </div>
                     );
@@ -474,12 +474,12 @@ export default function App() {
                 <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
                   <svg width="200" height="200" viewBox="0 0 200 200">
                     {(() => {
-                      const cats = ['materials', 'labour', 'utilities', 'rent', 'marketing', 'other'];
+                      const cats = expenseTypes;
                       const data = cats.map(c => ({ name: c, val: bills.filter(b => b.category === c).reduce((s,b) => s + Number(b.amount||0), 0) })).filter(x => x.val > 0);
                       const total = data.reduce((s,x) => s + x.val, 0);
                       if (total === 0) return <text x="100" y="100" textAnchor="middle" fill="#64748b">No Data</text>;
                       let start = 0;
-                      const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#6b7280'];
+                      const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#6b7280', '#ec4899', '#14b8a6'];
                       return data.map((d, i) => {
                         const angle = (d.val / total) * 360;
                         const x1 = 100 + 80 * Math.cos(Math.PI * 2 * start / 360);
@@ -498,10 +498,10 @@ export default function App() {
                   </svg>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '1rem' }}>
-                  {['materials', 'labour', 'utilities', 'rent', 'marketing', 'other'].map((c, i) => {
+                  {expenseTypes.map((c, i) => {
                     const val = bills.filter(b => b.category === c).reduce((s,b) => s + Number(b.amount||0), 0);
                     if (val === 0) return null;
-                    return <span key={c} style={{ fontSize: '0.8rem', color: '#64748b' }}><span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#6b7280'][i], marginRight: '4px' }}></span>{c}: LKR {val.toFixed(0)}</span>;
+                    return <span key={c} style={{ fontSize: '0.8rem', color: '#64748b' }}><span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#6b7280', '#ec4899', '#14b8a6'][i], marginRight: '4px' }}></span>{c}: LKR {val.toFixed(0)}</span>;
                   })}
                 </div>
               </div>
@@ -574,7 +574,7 @@ export default function App() {
                   ))}
                 </div>
 
-                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}> All Bookings ({appointments.length})</h3>
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>📅 All Bookings ({appointments.length})</h3>
                 <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
                   <input placeholder="🔍 Filter bookings..." value={bookingsFilter} onChange={e => setBookingsFilter(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   {appointments.filter(a => a.customer_name?.toLowerCase().includes(bookingsFilter.toLowerCase()) || a.service_name?.toLowerCase().includes(bookingsFilter.toLowerCase())).map(a => (
@@ -597,7 +597,7 @@ export default function App() {
           {activeTab === 'invoices' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2> Create Invoice</h2>
+                <h2>🧾 Create Invoice</h2>
                 {upcomingBookings.length > 0 && !selectedBooking && (
                   <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
                     <h3 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0369a1' }}>📅 Quick Select Booking</h3>
@@ -711,7 +711,7 @@ export default function App() {
                 </form>
               </div>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2> Services ({services.length})</h2>
+                <h2>📋 Services ({services.length})</h2>
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {services.map(s => (
                     <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
@@ -731,7 +731,7 @@ export default function App() {
           {activeTab === 'suppliers_expenses' && (
             <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2> Add Supplier</h2>
+                <h2>🏭 Add Supplier</h2>
                 <form onSubmit={handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
                   <input placeholder="Supplier Name" value={newSupplier.name} onChange={e => setNewSupplier({...newSupplier, name: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <input placeholder="Contact" value={newSupplier.contact} onChange={e => setNewSupplier({...newSupplier, contact: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
@@ -756,7 +756,7 @@ export default function App() {
                     {expenseTypes.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                   </select>
                   <select value={newBill.payment_method} onChange={e => setNewBill({...newBill, payment_method: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                    <option value="cash">💵 Cash</option><option value="bank_transfer"> Bank</option><option value="credit_card">💳 Credit</option><option value="debit_card">💳 Debit</option><option value="card">💳 Card</option>
+                    <option value="cash">💵 Cash</option><option value="bank_transfer">🏦 Bank</option><option value="credit_card">💳 Credit</option><option value="debit_card">💳 Debit</option><option value="card">💳 Card</option>
                   </select>
                   <input placeholder="Description" value={newBill.description} onChange={e => setNewBill({...newBill, description: e.target.value})} style={{ gridColumn: '1 / -1', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   <button type="submit" disabled={isLoading} style={{ gridColumn: '1 / -1', padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '📥 Add Bill'}</button>
@@ -796,7 +796,8 @@ export default function App() {
                   <input type="date" value={ledgerTo} onChange={e => setLedgerTo(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button onClick={() => { printLedger('cash'); printLedger('bank'); }} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Both Reports</button>
+                  <button onClick={() => printLedger('cash')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Cash Report</button>
+                  <button onClick={() => printLedger('bank')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Bank Report</button>
                 </div>
               </div>
 
@@ -892,9 +893,21 @@ export default function App() {
               <div style={{ display: 'grid', gap: '0.8rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📈 Revenue</span><strong style={{ color: '#10b981' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn).toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📦 Materials</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span> Labour</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>👷 Labour</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f0fdf4', borderRadius: '6px', fontWeight: 'bold' }}><span>💰 Gross Profit</span><strong style={{ color: '#15803d' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn - bills.filter(b => b.category === 'materials' || b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📋 Other</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => !['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                
+                {/* Other Expenses Breakdown */}
+                {expenseTypes.filter(t => !['materials','labour'].includes(t)).map(cat => {
+                  const total = bills.filter(b => b.category === cat).reduce((s,b) => s + Number(b.amount||0), 0);
+                  if (total === 0) return null;
+                  return (
+                    <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px', marginLeft: '1rem' }}>
+                      <span style={{ color: '#64748b' }}>• {cat.charAt(0).toUpperCase() + cat.slice(1)}</span>
+                      <strong style={{ color: '#dc2626' }}>-LKR {total.toFixed(2)}</strong>
+                    </div>
+                  );
+                })}
+                
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#eff6ff', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span>🎯 Net Profit</span><strong style={{ color: '#1e40af' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn - bills.reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
               </div>
             </div>
@@ -924,7 +937,7 @@ export default function App() {
             <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '12px', padding: '1.5rem', textAlign: 'center', marginBottom: '1.5rem' }}>
               <div style={{ fontSize: '3rem', fontWeight: '800' }}>{showLoyaltyCard.loyalty_points || 0}</div>
               <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Points Available</div>
-              <div style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: '4px' }}>Value: LKR {(showLoyaltyCard.loyalty_points || 0).toFixed(2)}</div>
+              <div style={{ fontSize: '0.8rem', opacity: '0.8', marginTop: '4px' }}>Value: LKR {(showLoyaltyCard.loyalty_points || 0).toFixed(2)}</div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => setShowLoyaltyCard(null)} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>❌ Close</button>
