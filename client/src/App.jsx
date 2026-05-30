@@ -3,12 +3,11 @@ import { supabase } from './supabaseClient';
 
 // 🏢 SALON CONFIGURATION - Edit these values directly
 const SALON_CONFIG = {
-  name: 'Saloon Enoka',
-  address: '251/8, Kirula Road, Colombo 5',
-  telephone: '+94 112 369 777',
-  //  Replace these with your actual Supabase Storage public URLs
-  salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/Enoka%20logo.jpg',
-  bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png'
+  name: 'Your Salon Name',
+  address: '123 Main Street, City, Country',
+  telephone: '+1 234 567 8900',
+  salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/salon-images/salon-logo.png',
+  bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/salon-images/bizhub-logo.png'
 };
 
 export default function App() {
@@ -19,7 +18,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState(null);
 
-  // 🏢 Salon Branding (from config)
+  // 🏢 Salon Branding
   const [salonName, setSalonName] = useState(SALON_CONFIG.name);
   const [salonLogo, setSalonLogo] = useState(SALON_CONFIG.salonLogoUrl);
   const [bizHubLogo, setBizHubLogo] = useState(SALON_CONFIG.bizHubLogoUrl);
@@ -41,7 +40,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [bookingsFilter, setBookingsFilter] = useState('');
 
-  //  Data
+  // 📦 Data
   const [customers, setCustomers] = useState([]);
   const [services, setServices] = useState([]);
   const [appointments, setAppointments] = useState([]);
@@ -62,11 +61,6 @@ export default function App() {
   const [openingBank, setOpeningBank] = useState(() => parseFloat(localStorage.getItem('salon_opening_bank') || '0'));
   const [cashOpenDate, setCashOpenDate] = useState(() => localStorage.getItem('salon_cash_date') || new Date().toISOString().split('T')[0]);
   const [bankOpenDate, setBankOpenDate] = useState(() => localStorage.getItem('salon_bank_date') || new Date().toISOString().split('T')[0]);
-
-  useEffect(() => localStorage.setItem('salon_opening_cash', openingCash), [openingCash]);
-  useEffect(() => localStorage.setItem('salon_opening_bank', openingBank), [openingBank]);
-  useEffect(() => localStorage.setItem('salon_cash_date', cashOpenDate), [cashOpenDate]);
-  useEffect(() => localStorage.setItem('salon_bank_date', bankOpenDate), [bankOpenDate]);
 
   // 📅 Ledger Date Range
   const [ledgerFrom, setLedgerFrom] = useState(() => {
@@ -134,7 +128,7 @@ export default function App() {
   const handleAddCustomer = async (e) => {
     e.preventDefault(); if (!newCustomer.name || !newCustomer.phone) return;
     setIsLoading(true);
-    try { const { error } = await supabase.from('customers').insert([newCustomer]); if (error) throw error; await fetchData(); setNewCustomer({ name: '', phone: '' }); }
+    try { const { error } = await supabase.from('customers').insert([newCustomer]); if (error) throw error; await fetchData(); setNewCustomer({ name: '', phone: '', gender: '', age: '' }); }
     catch (err) { setError(err.message); } finally { setIsLoading(false); }
   };
   const handleEditCustomer = async (id) => {
@@ -222,7 +216,7 @@ export default function App() {
     } catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
   };
 
-  //  POS Logic
+  // 🛒 POS Logic
   const posTotal = posForm.items.reduce((sum, item) => {
     const svc = services.find(s => s.id === Number(item.serviceId));
     const qty = Number(item.qty) || 0;
@@ -241,25 +235,14 @@ export default function App() {
     setSelectedBooking(booking);
     setActiveTab('invoices');
     setPosForm({
-      customerType: 'list',
-      customerId: booking.customer_id.toString(),
-      walkinName: '',
-      items: [{ serviceId: booking.service_id.toString(), qty: 1 }],
-      paymentMethod: 'cash',
-      amountTendered: ''
+      customerType: 'list', customerId: booking.customer_id.toString(), walkinName: '',
+      items: [{ serviceId: booking.service_id.toString(), qty: 1 }], paymentMethod: 'cash', amountTendered: ''
     });
   };
 
   const clearBookingSelection = () => {
     setSelectedBooking(null);
-    setPosForm({
-      customerType: 'list',
-      customerId: '',
-      walkinName: '',
-      items: [{ serviceId: '', qty: 1 }],
-      paymentMethod: 'cash',
-      amountTendered: ''
-    });
+    setPosForm({ customerType: 'list', customerId: '', walkinName: '', items: [{ serviceId: '', qty: 1 }], paymentMethod: 'cash', amountTendered: '' });
   };
 
   const handleCreateInvoice = async (e) => {
@@ -301,14 +284,13 @@ export default function App() {
   const printLedger = (type) => {
     const data = accountingData[type];
     const openBal = type === 'cash' ? openingCash : openingBank;
-    const openDate = type === 'cash' ? cashOpenDate : bankOpenDate;
     const title = type === 'cash' ? 'Cash Book' : 'Bank & Card Ledger';
     
     const printWindow = window.open('', '_blank');
     printWindow.document.write(`<!DOCTYPE html><html><head><title>${title} ${ledgerFrom} to ${ledgerTo}</title>
       <style>body{font-family:Arial,sans-serif;margin:40px auto;padding:20px;max-width:800px}h1{text-align:center;color:#1e3a8a;border-bottom:2px solid #1e3a8a;padding-bottom:10px}.meta{display:flex;justify-content:space-between;margin-bottom:20px;font-size:0.9rem;color:#64748b}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#f8fafc;font-weight:600}tfoot td{font-weight:bold;background:#f0f9ff}.inc{color:#10b981}.exp{color:#dc2626}@media print{body{margin:0}}</style></head><body>
       <h1>${salonName}</h1><p style="text-align:center;font-size:1.1rem">${title} Statement</p>
-      <div class="meta"><span>Period: ${ledgerFrom} to ${ledgerTo}</span><span>Opening Balance: $${openBal.toFixed(2)} (as of ${openDate})</span></div>
+      <div class="meta"><span>Period: ${ledgerFrom} to ${ledgerTo}</span><span>Opening Balance: $${openBal.toFixed(2)}</span></div>
       <table><thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Balance</th></tr></thead><tbody>
       ${data.txns.map(t => `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.desc}</td><td class="${t.type==='income'?'inc':'exp'}">${t.type==='income'?'+':'-'}$${t.amount.toFixed(2)}</td><td>$${t.balance.toFixed(2)}</td></tr>`).join('')}
       </tbody><tfoot><tr><td colspan="3" style="text-align:right">Closing Balance:</td><td>$${data.closing.toFixed(2)}</td></tr></tfoot></table>
@@ -316,7 +298,7 @@ export default function App() {
       <script>window.print();window.close()</script></body></html>`);
   };
 
-  // 💵 AUTO-LEDGER
+  //  AUTO-LEDGER
   const accountingData = useMemo(() => {
     const inPeriod = (dateStr) => {
       if (!dateStr) return false;
@@ -375,6 +357,22 @@ export default function App() {
   // 📊 Dashboard
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', position: 'relative' }}>
+      {/* Global Responsive Styles */}
+      <style>{`
+        @media (max-width: 640px) {
+          .main-container { padding: 0.5rem !important; }
+          .nav-tabs { gap: 4px !important; }
+          .nav-tabs button { font-size: 0.8rem !important; padding: 6px 8px !important; }
+          .card-grid { grid-template-columns: 1fr !important; }
+          .form-row { grid-template-columns: 1fr !important; }
+          .table-wrap { font-size: 0.85rem !important; }
+          th, td { padding: 6px 4px !important; }
+        }
+        @media (min-width: 641px) and (max-width: 1024px) {
+          .card-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
+
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
         backgroundImage: 'url("https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1920&q=80")',
@@ -385,26 +383,26 @@ export default function App() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {salonLogo && <img src={salonLogo} alt="Salon Logo" style={{ height: '40px', borderRadius: '8px' }} />}
           <div>
-                          <span style={{ color: '#fff', fontSize: '1.5rem', fontWeight: '700', padding: '4px 0' }}>{salonName}</span>
-            <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', marginTop: '2px' }}>
+            <span style={{ color: '#fff', fontSize: 'clamp(1.1rem, 2.5vw, 1.5rem)', fontWeight: '700', display: 'block', lineHeight: '1.2' }}>{salonName}</span>
+            <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem', marginTop: '2px' }}>
               {SALON_CONFIG.address} • {SALON_CONFIG.telephone}
             </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ color: '#fff', fontSize: '0.9rem', textAlign: 'right' }}>
+          <div style={{ color: '#fff', fontSize: '0.85rem', textAlign: 'right' }}>
             <div>{currentTime.toLocaleDateString()}</div>
-            <div style={{ fontSize: '0.8rem', opacity: 0.8 }}>{currentTime.toLocaleTimeString()}</div>
+            <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{currentTime.toLocaleTimeString()}</div>
           </div>
-          <button onClick={handleLogout} style={{ padding: '6px 14px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>🚪 Logout</button>
+          <button onClick={handleLogout} style={{ padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>🚪 Logout</button>
         </div>
       </div>
       
-      <div style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', fontFamily: 'system-ui' }}>
+      <div className="main-container" style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', fontFamily: 'system-ui' }}>
         {error && <div style={{ background: '#fef2f2', color: '#991b1b', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>⚠️ {error}</div>}
         {isLoading && <div style={{ textAlign: 'center', padding: '10px', color: '#64748b' }}>⏳ Syncing...</div>}
         
-        <nav style={{ display: 'flex', gap: '6px', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', overflowX: 'auto' }}>
+        <nav className="nav-tabs" style={{ display: 'flex', gap: '6px', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', overflowX: 'auto' }}>
           {['bookings', 'invoices', 'services', 'suppliers_expenses', 'cash_bank', 'statements'].map(tab => (
             <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '8px 12px', background: activeTab === tab ? '#3b82f6' : '#f1f5f9', color: activeTab === tab ? '#fff' : '#334155', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: activeTab === tab ? '600' : '400', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
               {tab === 'bookings' ? 'Booking & Customers' : tab === 'suppliers_expenses' ? 'Suppliers & Expenses' : tab === 'cash_bank' ? 'Cash & Bank Ledgers' : tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -413,15 +411,15 @@ export default function App() {
         </nav>
 
         <main>
-          {/* 👥 Booking & Customers - Form First, Then List */}
+          {/* 👥 Booking & Customers */}
           {activeTab === 'bookings' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+            <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                 <h2>👥 Add Customer</h2>
                 <form onSubmit={handleAddCustomer} style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
                   <input value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} placeholder="Name" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <input value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} placeholder="Phone" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                     <select value={newCustomer.gender} onChange={e => setNewCustomer({...newCustomer, gender: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                       <option value="">Gender (Optional)</option>
                       <option value="Male">Male</option>
@@ -437,7 +435,7 @@ export default function App() {
                 <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                   {customers.map(c => (
                     <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
-                      <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{c.name}</strong><div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>{c.phone}</div></div>
+                      <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{c.name}</strong><div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>{c.phone} {c.gender ? `• ${c.gender}` : ''} {c.age ? `• ${c.age}y` : ''}</div></div>
                       <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto' }}>
                         <button onClick={() => handleEditCustomer(c.id)} style={{ background: '#fff', color: '#d97706', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>✏️ Edit</button>
                         <button onClick={() => handleDeleteCustomer(c.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>🗑️ Delete</button>
@@ -449,7 +447,7 @@ export default function App() {
 
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                 <h2>📅 Bookings ({appointments.length})</h2>
-                <form onSubmit={handleBookAppointment} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
+                <form onSubmit={handleBookAppointment} className="form-row" style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
                   <select value={newAppointment.customerId} onChange={e => setNewAppointment({...newAppointment, customerId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
                   <select value={newAppointment.serviceId} onChange={e => setNewAppointment({...newAppointment, serviceId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (${s.price})</option>)}</select>
                   <input type="datetime-local" value={newAppointment.time} onChange={e => setNewAppointment({...newAppointment, time: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', gridColumn: '1 / -1' }} />
@@ -482,7 +480,7 @@ export default function App() {
                 <h2>🧾 Create Invoice</h2>
                 {upcomingBookings.length > 0 && !selectedBooking && (
                   <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0369a1' }}> Quick Select Booking</h3>
+                    <h3 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0369a1' }}>📅 Quick Select Booking</h3>
                     <div style={{ display: 'grid', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
                       {upcomingBookings.slice(0, 5).map(booking => (
                         <div key={booking.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', background: '#fff', borderRadius: '6px' }}>
@@ -500,7 +498,7 @@ export default function App() {
                   </div>
                 )}
                 <form onSubmit={handleCreateInvoice} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
+                  <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
                     <div>
                       <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Customer</label>
                       <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
@@ -527,7 +525,7 @@ export default function App() {
                   </div>
                   <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}><span>Total:</span><strong>${posTotal.toFixed(2)}</strong></div>
-                    {posForm.paymentMethod === 'cash' && <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><input type="tel" inputMode="numeric" placeholder="Cash Tendered" value={posForm.amountTendered} onChange={e => setPosForm({...posForm, amountTendered: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} /><div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem' }}>Change Due</div><strong style={{ fontSize: '1.2rem', color: posChange >= 0 ? '#166534' : '#dc2626' }}>${posChange.toFixed(2)}</strong></div></div>}
+                    {posForm.paymentMethod === 'cash' && <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><input type="tel" inputMode="numeric" placeholder="Cash Tendered" value={posForm.amountTendered} onChange={e => setPosForm({...posForm, amountTendered: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} /><div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem' }}>Change Due</div><strong style={{ fontSize: '1.2rem', color: posChange >= 0 ? '#166534' : '#dc2626' }}>${posChange.toFixed(2)}</strong></div></div>}
                   </div>
                   <button type="submit" disabled={isLoading || posTotal === 0} style={{ padding: '12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1.1rem', fontWeight: '600' }}>{isLoading ? 'Processing...' : selectedBooking ? '✅ Complete & Invoice' : '✅ Create Invoice'}</button>
                 </form>
@@ -550,14 +548,14 @@ export default function App() {
             </div>
           )}
 
-          {/* ⚙️ Services */}
+          {/* ️ Services */}
           {activeTab === 'services' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+            <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                 <h2>{editingService ? '✏️ Edit Service' : '➕ Add Service'}</h2>
                 <form onSubmit={editingService ? handleUpdateService : handleAddService} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <input placeholder="Service Name" value={editingService?.name || newService.name} onChange={e => editingService ? setEditingService({...editingService, name: e.target.value}) : setNewService({...newService, name: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                  <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                     <input type="tel" inputMode="numeric" placeholder="Price ($)" value={editingService?.price || newService.price} onChange={e => editingService ? setEditingService({...editingService, price: e.target.value}) : setNewService({...newService, price: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                     <input type="tel" inputMode="numeric" placeholder="Duration (min)" value={editingService?.duration || newService.duration} onChange={e => editingService ? setEditingService({...editingService, duration: e.target.value}) : setNewService({...newService, duration: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   </div>
@@ -570,7 +568,7 @@ export default function App() {
                 </form>
               </div>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2> Services ({services.length})</h2>
+                <h2>📋 Services ({services.length})</h2>
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {services.map(s => (
                     <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
@@ -586,9 +584,9 @@ export default function App() {
             </div>
           )}
 
-          {/* 🏭 Suppliers & Expenses */}
+          {/*  Suppliers & Expenses */}
           {activeTab === 'suppliers_expenses' && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+            <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                 <h2>🏭 Add Supplier</h2>
                 <form onSubmit={handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
@@ -605,7 +603,7 @@ export default function App() {
               
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                 <h2>📦 Record Bill</h2>
-                <form onSubmit={handleAddBill} style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
+                <form onSubmit={handleAddBill} className="form-row" style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
                   <select value={newBill.supplier_id || ''} onChange={e => setNewBill({...newBill, supplier_id: e.target.value, supplier_name: suppliers.find(s => s.id == e.target.value)?.name || ''})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                     <option value="">Select Recurring</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
@@ -613,7 +611,7 @@ export default function App() {
                   <input type="tel" inputMode="numeric" placeholder="Amount ($)" value={newBill.amount} onChange={e => setNewBill({...newBill, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <input type="date" value={newBill.bill_date} onChange={e => setNewBill({...newBill, bill_date: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <select value={newBill.category} onChange={e => setNewBill({...newBill, category: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                    <option value="materials">📦 Materials</option><option value="labour">👷 Labour</option><option value="utilities">💡 Utilities</option><option value="rent">🏢 Rent</option><option value="other">📋 Other</option>
+                    <option value="materials"> Materials</option><option value="labour"> Labour</option><option value="utilities"> Utilities</option><option value="rent"> Rent</option><option value="other"> Other</option>
                   </select>
                   <select value={newBill.payment_method} onChange={e => setNewBill({...newBill, payment_method: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                     <option value="cash">💵 Cash</option><option value="bank_transfer">🏦 Bank Transfer</option><option value="credit_card">💳 Credit Card</option><option value="debit_card">💳 Debit Card</option><option value="card">💳 Card</option>
@@ -634,26 +632,32 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', flexWrap: 'wrap', gap: '8px' }}>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: '600', fontSize: '0.9rem' }}>📅 Period:</span>
+                  <span style={{ fontWeight: '600', fontSize: '0.9rem' }}> Period:</span>
                   <input type="date" value={ledgerFrom} onChange={e => setLedgerFrom(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
                   <span>to</span>
                   <input type="date" value={ledgerTo} onChange={e => setLedgerTo(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button onClick={() => printLedger('cash')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>️ Print Cash</button>
+                  <button onClick={() => printLedger('cash')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>🖨️ Print Cash</button>
                   <button onClick={() => printLedger('bank')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>🖨️ Print Bank</button>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+              <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                {/* Cash Panel */}
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                   <h2>💵 Cash Book</h2>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', background: '#f8fafc', padding: '10px', borderRadius: '8px', flexWrap: 'wrap' }}>
-                    <input type="number" step="0.01" placeholder="Opening Balance" value={openingCash || ''} onChange={e => setOpeningCash(parseFloat(e.target.value || '0'))} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100px' }} />
-                    <input type="date" value={cashOpenDate} onChange={e => setCashOpenDate(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1 }} />
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', background: '#f8fafc', padding: '10px', borderRadius: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Balance as of {ledgerFrom}</label>
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                        <input type="number" step="0.01" value={openingCash || ''} onChange={e => setOpeningCash(parseFloat(e.target.value || '0'))} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1 }} />
+                        <button onClick={() => { localStorage.setItem('salon_opening_cash', openingCash); alert('💾 Cash opening balance saved!'); }} style={{ padding: '6px 10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>💾 Save</button>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                  <div className="table-wrap" style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', minWidth: '500px' }}>
                       <thead style={{ background: '#f1f5f9', position: 'sticky', top: 0 }}>
                         <tr><th style={{ padding: '8px' }}>Date</th><th style={{ padding: '8px' }}>Description</th><th style={{ padding: '8px', textAlign: 'right' }}>Amount</th><th style={{ padding: '8px', textAlign: 'right' }}>Balance</th></tr>
                       </thead>
@@ -674,14 +678,20 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Bank Panel */}
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                   <h2>🏦 Bank & Card Ledger</h2>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', background: '#f8fafc', padding: '10px', borderRadius: '8px', flexWrap: 'wrap' }}>
-                    <input type="number" step="0.01" placeholder="Opening Balance" value={openingBank || ''} onChange={e => setOpeningBank(parseFloat(e.target.value || '0'))} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', width: '100px' }} />
-                    <input type="date" value={bankOpenDate} onChange={e => setBankOpenDate(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1 }} />
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', background: '#f8fafc', padding: '10px', borderRadius: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Balance as of {ledgerFrom}</label>
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
+                        <input type="number" step="0.01" value={openingBank || ''} onChange={e => setOpeningBank(parseFloat(e.target.value || '0'))} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1 }} />
+                        <button onClick={() => { localStorage.setItem('salon_opening_bank', openingBank); alert('💾 Bank opening balance saved!'); }} style={{ padding: '6px 10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>💾 Save</button>
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                  <div className="table-wrap" style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', minWidth: '500px' }}>
                       <thead style={{ background: '#f1f5f9', position: 'sticky', top: 0 }}>
                         <tr><th style={{ padding: '8px' }}>Date</th><th style={{ padding: '8px' }}>Description</th><th style={{ padding: '8px', textAlign: 'right' }}>Amount</th><th style={{ padding: '8px', textAlign: 'right' }}>Balance</th></tr>
                       </thead>
@@ -705,11 +715,11 @@ export default function App() {
             </div>
           )}
 
-          {/*  Statements */}
+          {/* 📄 Statements */}
           {activeTab === 'statements' && (
             <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
-                <h2> Financial Statement</h2>
+                <h2>📄 Financial Statement</h2>
                 <button onClick={() => window.print()} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🖨️ Print</button>
               </div>
               <div style={{ display: 'grid', gap: '0.8rem' }}>
