@@ -8,7 +8,8 @@ const SALON_CONFIG = {
   telephone: '+94 112 369 777',
   //  Replace these with your actual Supabase Storage public URLs
   salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/Enoka%20logo.jpg',
-  bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png',  loyaltyRate: 10,
+  bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png',  
+  loyaltyRate: 100,
   openTime: '09:00',
   closeTime: '18:00',
   currentYear: new Date().getFullYear(),
@@ -22,6 +23,7 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState(null);
+  const [signupRole, setSignupRole] = useState('staff');
 
   // 🏢 Branding
   const [salonName, setSalonName] = useState(SALON_CONFIG.name);
@@ -109,39 +111,25 @@ export default function App() {
     setCustomers([]); setServices([]); setAppointments([]); setInvoices([]); setSuppliers([]); setBills([]); setBlockouts([]);
   };
 
-  //  Init
+  // 🔌 Init & Fetch
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); if (session) fetchData(); });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setSession(session); if (session) fetchData(); });
+    supabase.auth.getSession().then(({ data: { session } }) => { 
+      setSession(session); 
+      if (session) {
+        // Read role from user metadata (Admin/Manager/Staff)
+        setUserRole(session.user.user_metadata?.role || 'staff');
+        fetchData(); 
+      } 
+    });
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { 
+      setSession(session); 
+      if (session) {
+        setUserRole(session.user.user_metadata?.role || 'staff');
+        fetchData(); 
+      }
+    });
     return () => subscription.unsubscribe();
   }, []);
-
-  const fetchData = async () => {
-    setIsLoading(true);
-    try {
-      const [cust, svc, apt, inv, sup, bil] = await Promise.all([
-        supabase.from('customers').select('*').order('created_at', { ascending: false }),
-        supabase.from('services').select('*').order('name'),
-        supabase.from('appointments').select('*').order('time', { ascending: true }),
-        supabase.from('invoices').select('*').order('issued_at', { ascending: false }),
-        supabase.from('suppliers').select('*').order('name'),
-        supabase.from('supplier_bills').select('*').order('bill_date', { ascending: false })
-      ]);
-      [cust, svc, apt, inv, sup, bil].forEach(res => { if (res.error) throw res.error; });
-      setCustomers(cust.data || []);
-      setServices(svc.data || []);
-      setAppointments(apt.data || []);
-      setInvoices((inv.data || []).map(i => ({ ...i, items: typeof i.items === 'string' ? JSON.parse(i.items) : (i.items || []) })));
-      setSuppliers(sup.data || []);
-      setBills(bil.data || []);
-      
-      const savedTypes = localStorage.getItem('salon_expense_types');
-      if (savedTypes) setExpenseTypes(JSON.parse(savedTypes));
-      const savedBlockouts = localStorage.getItem('salon_blockouts');
-      if (savedBlockouts) setBlockouts(JSON.parse(savedBlockouts));
-    } catch (err) { setError('Failed to load data: ' + err.message); }
-    finally { setIsLoading(false); }
-  };
 
   // 👤 Customers
   const handleAddCustomer = async (e) => {
@@ -497,6 +485,16 @@ export default function App() {
           {authError && <div style={{ background: authError.includes('✅') ? '#dcfce7' : '#fef2f2', color: authError.includes('✅') ? '#166534' : '#dc2626', padding: '8px', borderRadius: '6px', marginBottom: '10px', fontSize: '0.85rem' }}>{authError}</div>}
           <input placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} required />
           <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} required />
+          {authMode === 'signup' && (
+            <div style={{ marginBottom: '10px' }}>
+              <label style={{ fontSize: '0.85rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>Role</label>
+              <select value={signupRole} onChange={e => setSignupRole(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
+                <option value="staff">👩‍💼 Staff (Bookings, Invoices, Expenses)</option>
+                <option value="manager">👔 Manager (Full Access)</option>
+                <option value="admin">👑 Admin (Developer / Super User)</option>
+              </select>
+            </div>
+          )}
           <button type="submit" style={{ width: '100%', padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', marginBottom: '10px', fontWeight: '600' }}>{authMode === 'login' ? 'Sign In' : 'Create Account'}</button>
           <button type="button" onClick={() => { setAuthMode(authMode === 'login' ? 'signup' : 'login'); setAuthError(null); setUsername(''); setPassword(''); }} style={{ width: '100%', padding: '8px', background: 'transparent', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: '8px', cursor: 'pointer' }}>{authMode === 'login' ? 'Need account? Sign Up' : 'Have one? Sign In'}</button>
         </form>
@@ -542,11 +540,21 @@ export default function App() {
         {isLoading && <div style={{ textAlign: 'center', padding: '10px', color: '#64748b' }}>⏳ Syncing...</div>}
         
         <nav className="nav-tabs" style={{ display: 'flex', gap: '6px', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', overflowX: 'auto' }}>
-          {['dashboard', 'bookings', 'invoices', 'services', 'suppliers_expenses', 'cash_bank', 'statements'].map(tab => (
-            <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '8px 12px', background: activeTab === tab ? '#3b82f6' : '#f1f5f9', color: activeTab === tab ? '#fff' : '#334155', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: activeTab === tab ? '600' : '400', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
-              {tab === 'bookings' ? 'Booking & Customers' : tab === 'suppliers_expenses' ? 'Suppliers & Expenses' : tab === 'cash_bank' ? 'Cash & Bank Ledgers' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </button>
-          ))}
+          {(() => {
+            //  Define Permissions Here
+            const fullAccessTabs = ['dashboard', 'bookings', 'invoices', 'services', 'suppliers_expenses', 'cash_bank', 'statements'];
+            const staffAccessTabs = ['bookings', 'invoices', 'suppliers_expenses'];
+            
+            // Check Role
+            const isStaff = userRole === 'staff';
+            const tabsToShow = isStaff ? staffAccessTabs : fullAccessTabs;
+
+            return tabsToShow.map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab)} style={{ padding: '8px 12px', background: activeTab === tab ? '#3b82f6' : '#f1f5f9', color: activeTab === tab ? '#fff' : '#334155', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: activeTab === tab ? '600' : '400', whiteSpace: 'nowrap', fontSize: '0.9rem' }}>
+                {tab === 'bookings' ? 'Booking & Customers' : tab === 'suppliers_expenses' ? 'Suppliers & Expenses' : tab === 'cash_bank' ? 'Cash & Bank Ledgers' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+              </button>
+            ));
+          })()}
         </nav>
 
         <main>
