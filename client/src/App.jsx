@@ -721,20 +721,20 @@ export default function App() {
                   <button type="submit" disabled={isLoading} style={{ padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '+ Add Customer'}</button>
                 </form>
                 
-                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>📅 Add Booking</h3>
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}> Add Booking</h3>
                 <form onSubmit={handleBookAppointment} style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
-                  <select value={newAppointment.customerId} onChange={e => setNewAppointment({...newAppointment, customerId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-                  <select value={newAppointment.serviceId} onChange={e => setNewAppointment({...newAppointment, serviceId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (LKR {s.price})</option>)}</select>
+                  <select value={newAppointment.customerId} onChange={e => setNewAppointment({...newAppointment, customerId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Customer</option>{(customers || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                  <select value={newAppointment.serviceId} onChange={e => setNewAppointment({...newAppointment, serviceId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Service</option>{(services || []).map(s => <option key={s.id} value={s.id}>{s.name} (LKR {s.price})</option>)}</select>
                   <input type="datetime-local" value={newAppointment.time} onChange={e => setNewAppointment({...newAppointment, time: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                  <button type="submit" disabled={isLoading || !services.length} style={{ padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>✅ Book Appointment</button>
+                  <button type="submit" disabled={isLoading || !(services && services.length)} style={{ padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>✅ Book Appointment</button>
                 </form>
 
-                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>🔍 Search Customers</h3>
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}> Search Customers</h3>
                 <input placeholder="Name or Phone..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
                 
-                <h3 style={{ marginTop: '1rem', marginBottom: '1rem' }}>Customers ({customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone.includes(customerSearch)).length})</h3>
+                <h3 style={{ marginTop: '1rem', marginBottom: '1rem' }}>Customers ({(customers || []).filter(c => c.name.toLowerCase().includes((customerSearch||'').toLowerCase()) || c.phone.includes(customerSearch||'')).length})</h3>
                 <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
-                  {customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone.includes(customerSearch)).map(c => (
+                  {(customers || []).filter(c => c.name.toLowerCase().includes((customerSearch||'').toLowerCase()) || c.phone.includes(customerSearch||'')).map(c => (
                     <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
                       <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{c.name}</strong><div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>{c.phone} {c.gender ? `• ${c.gender}` : ''} {c.age ? `• ${c.age}y` : ''}{c.loyalty_points > 0 && ` • ⭐${c.loyalty_points}`}</div></div>
                       <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
@@ -759,7 +759,7 @@ export default function App() {
                   <button type="submit" style={{ padding: '8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🚫 Block Time</button>
                 </form>
                 <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
-                  {blockouts.map(b => (
+                  {(blockouts || []).map(b => (
                     <div key={b.date+b.startTime} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
                       <div><strong>{new Date(b.date).toLocaleDateString()}</strong> {b.startTime} - {b.endTime} • {b.reason || 'Blocked'}</div>
                       <button onClick={() => handleRemoveBlockout(b.date+b.startTime)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>✕ Remove</button>
@@ -767,10 +767,10 @@ export default function App() {
                   ))}
                 </div>
 
-                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>📅 All Bookings ({appointments.length})</h3>
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}> All Bookings ({(appointments || []).length})</h3>
                 <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
-                  <input placeholder="🔍 Filter bookings..." value={bookingsFilter} onChange={e => setBookingsFilter(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                  {appointments.filter(a => a.customer_name?.toLowerCase().includes(bookingsFilter.toLowerCase()) || a.service_name?.toLowerCase().includes(bookingsFilter.toLowerCase())).map(a => (
+                  <input placeholder=" Filter bookings..." value={bookingsFilter} onChange={e => setBookingsFilter(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                  {(appointments || []).filter(a => (a.customer_name||'').toLowerCase().includes((bookingsFilter||'').toLowerCase()) || (a.service_name||'').toLowerCase().includes((bookingsFilter||'').toLowerCase())).map(a => (
                     <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
                       <div><strong>{a.customer_name}</strong> • {a.service_name}<div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(a.time).toLocaleString()}</div></div>
                       <div style={{ display: 'flex', gap: '6px' }}>
@@ -904,9 +904,9 @@ export default function App() {
                 </form>
               </div>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>📋 Services ({services.length})</h2>
+                <h2>📋 Services ({services?.length || 0})</h2>
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                  {services.map(s => (
+                  {(services || []).map(s => (
                     <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
                       <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{s.name}</strong> • LKR {s.price} / {s.duration}m<div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>From: {new Date(s.price_effective_from).toLocaleDateString()}</div></div>
                       <div style={{ display: 'flex', gap: '8px' }}>
