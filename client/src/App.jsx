@@ -3,11 +3,11 @@ import { supabase } from './supabaseClient';
 
 // 🏢 SALON CONFIGURATION - Edit these values directly
 const SALON_CONFIG = {
-  name: 'Saloon Enoka',
+  name: 'Your Salon Name',
   address: '123 Main Street, City, Country',
   telephone: '+1 234 567 8900',
-  // 📷 Replace these with your actual Supabase Storage public URLs
-  salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/Enoka%20logo.jpg'
+  //  Replace these with your actual Supabase Storage public URLs
+  salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/Enoka%20logo.jpg',
   bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png'
 };
 
@@ -41,7 +41,7 @@ export default function App() {
   const [error, setError] = useState(null);
   const [bookingsFilter, setBookingsFilter] = useState('');
 
-  // 📦 Data
+  //  Data
   const [customers, setCustomers] = useState([]);
   const [services, setServices] = useState([]);
   const [appointments, setAppointments] = useState([]);
@@ -73,7 +73,6 @@ export default function App() {
     const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0];
   });
   const [ledgerTo, setLedgerTo] = useState(() => new Date().toISOString().split('T')[0]);
-  const ledgerRef = useRef(null);
 
   // 🛒 POS
   const [posForm, setPosForm] = useState({
@@ -209,7 +208,7 @@ export default function App() {
     } catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
   };
 
-  // 🛒 POS Logic
+  //  POS Logic
   const posTotal = posForm.items.reduce((sum, item) => {
     const svc = services.find(s => s.id === Number(item.serviceId));
     const qty = Number(item.qty) || 0;
@@ -373,7 +372,7 @@ export default function App() {
           {salonLogo && <img src={salonLogo} alt="Salon Logo" style={{ height: '40px', borderRadius: '8px' }} />}
           <div>
             <input value={salonName} onChange={(e) => setSalonName(e.target.value)}
-              style={{ background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.3), color: '#fff', fontSize: '1.5rem', fontWeight: '700', width: '250px', padding: '4px' }} />
+              style={{ background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.3)', color: '#fff', fontSize: '1.5rem', fontWeight: '700', width: '250px', padding: '4px' }} />
             <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.85rem', marginTop: '2px' }}>
               {SALON_CONFIG.address} • {SALON_CONFIG.telephone}
             </div>
@@ -461,7 +460,7 @@ export default function App() {
                 <h2>🧾 Create Invoice</h2>
                 {upcomingBookings.length > 0 && !selectedBooking && (
                   <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0369a1' }}>📅 Quick Select Booking</h3>
+                    <h3 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0369a1' }}> Quick Select Booking</h3>
                     <div style={{ display: 'grid', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
                       {upcomingBookings.slice(0, 5).map(booking => (
                         <div key={booking.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', background: '#fff', borderRadius: '6px' }}>
@@ -549,7 +548,7 @@ export default function App() {
                 </form>
               </div>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>📋 Services ({services.length})</h2>
+                <h2> Services ({services.length})</h2>
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {services.map(s => (
                     <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
@@ -590,7 +589,7 @@ export default function App() {
                     <option value="materials">📦 Materials</option><option value="labour">👷 Labour</option><option value="utilities">💡 Utilities</option><option value="rent">🏢 Rent</option><option value="other">📋 Other</option>
                   </select>
                   <select value={newBill.payment_method} onChange={e => setNewBill({...newBill, payment_method: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                    <option value="cash">💵 Cash</option><option value="bank_transfer">🏦 Bank Transfer</option><option value="credit_card">💳 Credit Card</option><option value="debit_card">💳 Debit Card</option><option value="card">💳 Card</option>
+                    <option value="cash">💵 Cash</option><option value="bank_transfer"> Bank Transfer</option><option value="credit_card">💳 Credit Card</option><option value="debit_card">💳 Debit Card</option><option value="card">💳 Card</option>
                   </select>
                   <input placeholder="Description (Optional)" value={newBill.description} onChange={e => setNewBill({...newBill, description: e.target.value})} style={{ gridColumn: '1 / -1', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   <button type="submit" disabled={isLoading} style={{ gridColumn: '1 / -1', padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '📥 Add Bill'}</button>
@@ -614,7 +613,7 @@ export default function App() {
                   <input type="date" value={ledgerTo} onChange={e => setLedgerTo(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button onClick={() => printLedger('cash')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>🖨️ Print Cash</button>
+                  <button onClick={() => printLedger('cash')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>️ Print Cash</button>
                   <button onClick={() => printLedger('bank')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>🖨️ Print Bank</button>
                 </div>
               </div>
@@ -679,11 +678,11 @@ export default function App() {
             </div>
           )}
 
-          {/* 📄 Statements */}
+          {/*  Statements */}
           {activeTab === 'statements' && (
             <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
-                <h2>📄 Financial Statement</h2>
+                <h2> Financial Statement</h2>
                 <button onClick={() => window.print()} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🖨️ Print</button>
               </div>
               <div style={{ display: 'grid', gap: '0.8rem' }}>
