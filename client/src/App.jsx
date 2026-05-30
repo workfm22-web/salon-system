@@ -1,15 +1,18 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient';
 
-// 🏢 SALON CONFIGURATION
+//  CONFIGURATION
 const SALON_CONFIG = {
   name: 'Salon Enoka',
   address: '251/8, Kirula Road, Colombo 5',
   telephone: '+94 112 369 777',
-  //  Replace these with your actual Supabase Storage public URLs
   salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/Enoka%20logo.jpg',
   bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png',
-  loyaltyRate: 10 // $1 = 1 point
+  loyaltyRate: 10,
+  openTime: '09:00',
+  closeTime: '18:00',
+  currentYear: new Date().getFullYear(),
+  currency: 'LKR'
 };
 
 export default function App() {
@@ -20,7 +23,7 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState(null);
 
-  //  Salon Branding
+  // 🏢 Branding
   const [salonName, setSalonName] = useState(SALON_CONFIG.name);
   const [salonLogo, setSalonLogo] = useState(SALON_CONFIG.salonLogoUrl);
   const [bizHubLogo, setBizHubLogo] = useState(SALON_CONFIG.bizHubLogoUrl);
@@ -29,18 +32,16 @@ export default function App() {
   useEffect(() => localStorage.setItem('salon_logo', salonLogo), [salonLogo]);
   useEffect(() => localStorage.setItem('bizhub_logo', bizHubLogo), [bizHubLogo]);
 
-  // ⏰ Current Time
+  //  Time
   const [currentTime, setCurrentTime] = useState(new Date());
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
+  useEffect(() => { const t = setInterval(() => setCurrentTime(new Date()), 1000); return () => clearInterval(t); }, []);
 
-  // 📊 Dashboard State
+  // 📊 State
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [bookingsFilter, setBookingsFilter] = useState('');
+  const [chartPeriod, setChartPeriod] = useState('month');
+  const [bookingsFilter, setBookingsFilter] = useState(''); // ✅ ADDED THIS LINE
 
   // 📦 Data
   const [customers, setCustomers] = useState([]);
@@ -52,17 +53,18 @@ export default function App() {
   const [expenseTypes, setExpenseTypes] = useState(['materials', 'labour', 'utilities', 'rent', 'marketing', 'other']);
   const [blockouts, setBlockouts] = useState([]);
 
-  //  Forms
+  // 📝 Forms
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', gender: '', age: '' });
+  const [customerSearch, setCustomerSearch] = useState('');
   const [newAppointment, setNewAppointment] = useState({ customerId: '', serviceId: '', time: '' });
   const [newSupplier, setNewSupplier] = useState({ name: '', contact: '' });
   const [newBill, setNewBill] = useState({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0], category: 'other', payment_method: 'cash' });
   const [newService, setNewService] = useState({ name: '', price: '', duration: '', effective_from: new Date().toISOString().split('T')[0] });
   const [editingService, setEditingService] = useState(null);
   const [newExpenseType, setNewExpenseType] = useState('');
-  const [newBlockout, setNewBlockout] = useState({ date: '', reason: '' });
+  const [newBlockout, setNewBlockout] = useState({ date: '', startTime: '00:00', endTime: '23:59', reason: '' });
 
-  // 💰 Opening Balances (SEPARATE from ledger period)
+  // 💰 Opening Balances
   const [openingCash, setOpeningCash] = useState(() => parseFloat(localStorage.getItem('salon_opening_cash') || '0'));
   const [openingBank, setOpeningBank] = useState(() => parseFloat(localStorage.getItem('salon_opening_bank') || '0'));
   const [cashOpenDate, setCashOpenDate] = useState(() => localStorage.getItem('salon_cash_date') || new Date().toISOString().split('T')[0]);
@@ -75,22 +77,19 @@ export default function App() {
   useEffect(() => localStorage.setItem('salon_cash_date', cashOpenDate), [cashOpenDate]);
   useEffect(() => localStorage.setItem('salon_bank_date', bankOpenDate), [bankOpenDate]);
 
-  // 📅 Ledger Date Range
-  const [ledgerFrom, setLedgerFrom] = useState(() => {
-    const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0];
-  });
+  //  Ledger Range
+  const [ledgerFrom, setLedgerFrom] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split('T')[0]; });
   const [ledgerTo, setLedgerTo] = useState(() => new Date().toISOString().split('T')[0]);
 
-  //  POS
+  // 🛒 POS
   const [posForm, setPosForm] = useState({
     customerType: 'list', customerId: '', walkinName: '',
-    items: [{ serviceId: '', qty: 1 }], paymentMethod: 'cash', amountTendered: '',
-    discountType: 'none', discountValue: ''
+    items: [{ serviceId: '', qty: 1, discount: 0, adjustment: 0 }], paymentMethod: 'cash', amountTendered: ''
   });
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [showLoyaltyCard, setShowLoyaltyCard] = useState(null);
 
-  // 🔐 Auth Handlers
+  // 🔐 Auth
   const handleAuth = async (e) => {
     e.preventDefault(); setAuthError(null);
     try {
@@ -110,7 +109,7 @@ export default function App() {
     setCustomers([]); setServices([]); setAppointments([]); setInvoices([]); setSuppliers([]); setBills([]); setBlockouts([]);
   };
 
-  // 🔌 Init & Fetch
+  //  Init
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => { setSession(session); if (session) fetchData(); });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => { setSession(session); if (session) fetchData(); });
@@ -136,11 +135,8 @@ export default function App() {
       setSuppliers(sup.data || []);
       setBills(bil.data || []);
       
-      // Load custom expense types from localStorage
       const savedTypes = localStorage.getItem('salon_expense_types');
       if (savedTypes) setExpenseTypes(JSON.parse(savedTypes));
-      
-      // Load blockouts from localStorage (or DB if you add a table later)
       const savedBlockouts = localStorage.getItem('salon_blockouts');
       if (savedBlockouts) setBlockouts(JSON.parse(savedBlockouts));
     } catch (err) { setError('Failed to load data: ' + err.message); }
@@ -149,49 +145,52 @@ export default function App() {
 
   // 👤 Customers
   const handleAddCustomer = async (e) => {
-    e.preventDefault(); if (!newCustomer.name || !newCustomer.phone) return;
+    e.preventDefault();
+    if (!newCustomer.name || !newCustomer.phone) return setError('Name & phone required');
+    if (!/^\d{10}$/.test(newCustomer.phone)) return setError('Phone must be exactly 10 digits');
     setIsLoading(true);
     try { 
       const { error } = await supabase.from('customers').insert([{ ...newCustomer, loyalty_points: 0 }]); 
       if (error) throw error; await fetchData(); setNewCustomer({ name: '', phone: '', gender: '', age: '' }); 
-    }
-    catch (err) { setError(err.message); } finally { setIsLoading(false); }
+    } catch (err) { setError(err.message); } finally { setIsLoading(false); }
   };
   const handleEditCustomer = async (id) => {
     const c = customers.find(x => x.id === id); if (!c) return;
-    const name = prompt('Name:', c.name);
-    const phone = prompt('Phone:', c.phone);
+    const name = prompt('Name:', c.name); const phone = prompt('Phone:', c.phone);
     if (name === null || phone === null) return;
+    if (!/^\d{10}$/.test(phone)) return setError('Phone must be 10 digits');
     const gender = prompt('Gender (Male/Female):', c.gender || '');
     const age = prompt('Age:', c.age || '');
-    
     setIsLoading(true);
     try {
-      const { error } = await supabase.from('customers').update({
-        name, phone,
-        gender: gender || null,
-        age: age ? Number(age) : null
-      }).eq('id', id);
-      if (error) throw error;
-      await fetchData();
+      const { error } = await supabase.from('customers').update({ name, phone, gender: gender || null, age: age ? Number(age) : null }).eq('id', id);
+      if (error) throw error; await fetchData();
     } catch (err) { setError(err.message); } finally { setIsLoading(false); }
   };
   const handleDeleteCustomer = async (id) => {
-    if (!window.confirm('Delete this customer?')) return; setIsLoading(true);
+    if (!window.confirm('Delete customer?')) return; setIsLoading(true);
     try { const { error } = await supabase.from('customers').delete().eq('id', id); if (error) throw error; await fetchData(); } catch (err) { setError(err.message); } finally { setIsLoading(false); }
   };
 
-  // 📅 Bookings
-  const isDateBlocked = (dateStr) => {
-    const dateOnly = dateStr.split('T')[0];
-    return blockouts.some(b => b.date === dateOnly);
+  //  Bookings Validation
+  const isTimeBlocked = (bookingDateTime) => {
+    const bDate = bookingDateTime.split('T')[0];
+    const bTime = bookingDateTime.split('T')[1].slice(0, 5);
+    return blockouts.some(b => {
+      if (b.date !== bDate) return false;
+      return bTime >= b.startTime && bTime < b.endTime;
+    });
+  };
+  const isWithinHours = (bookingDateTime) => {
+    const time = bookingDateTime.split('T')[1].slice(0, 5);
+    return time >= SALON_CONFIG.openTime && time < SALON_CONFIG.closeTime;
   };
 
   const handleBookAppointment = async (e) => {
     e.preventDefault();
-    const dateOnly = newAppointment.time.split('T')[0];
-    if (isDateBlocked(dateOnly)) return setError(' This date is blocked. Please choose another date.');
-    if (!newAppointment.customerId || !newAppointment.serviceId || !newAppointment.time) return;
+    if (!newAppointment.customerId || !newAppointment.serviceId || !newAppointment.time) return setError('Fill all fields');
+    if (!isWithinHours(newAppointment.time)) return setError(`Booking outside salon hours (${SALON_CONFIG.openTime} - ${SALON_CONFIG.closeTime})`);
+    if (isTimeBlocked(newAppointment.time)) return setError('This time slot is blocked');
     setIsLoading(true);
     try {
       const cust = customers.find(c => c.id === Number(newAppointment.customerId));
@@ -241,139 +240,66 @@ export default function App() {
     if (!finalName || !newBill.amount) return setError('Supplier name & amount required');
     setIsLoading(true);
     try {
-      const { error } = await supabase.from('supplier_bills').insert({
-        supplier_name: finalName, amount: Number(newBill.amount), description: newBill.description,
-        bill_date: newBill.bill_date, category: newBill.category, payment_method: newBill.payment_method
-      });
-      if (error) throw error; await fetchData();
-      setNewBill({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0], category: expenseTypes[0], payment_method: 'cash' });
+      const { error } = await supabase.from('supplier_bills').insert({ supplier_name: finalName, amount: Number(newBill.amount), description: newBill.description, bill_date: newBill.bill_date, category: newBill.category, payment_method: newBill.payment_method });
+      if (error) throw error; await fetchData(); setNewBill({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0], category: expenseTypes[0], payment_method: 'cash' });
     } catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
   };
-
-  const handleAddExpenseType = () => {
-    if (!newExpenseType.trim()) return;
-    const newType = newExpenseType.trim().toLowerCase();
-    if (expenseTypes.includes(newType)) return setError('Expense type already exists');
-    const updated = [...expenseTypes, newType];
-    setExpenseTypes(updated);
-    localStorage.setItem('salon_expense_types', JSON.stringify(updated));
-    setNewExpenseType('');
-  };
-
-  const handleDeleteExpenseType = (type) => {
-    if (!window.confirm(`Delete "${type}" expense type?`)) return;
-    const updated = expenseTypes.filter(t => t !== type);
-    setExpenseTypes(updated);
-    localStorage.setItem('salon_expense_types', JSON.stringify(updated));
-  };
-
-  const handleAddBlockout = () => {
-    if (!newBlockout.date) return;
-    const updated = [...blockouts, newBlockout];
-    setBlockouts(updated);
-    localStorage.setItem('salon_blockouts', JSON.stringify(updated));
-    setNewBlockout({ date: '', reason: '' });
-  };
-
-  const handleRemoveBlockout = (date) => {
-    const updated = blockouts.filter(b => b.date !== date);
-    setBlockouts(updated);
-    localStorage.setItem('salon_blockouts', JSON.stringify(updated));
-  };
+  const handleAddExpenseType = () => { if (!newExpenseType.trim()) return; const t = newExpenseType.trim().toLowerCase(); if (expenseTypes.includes(t)) return setError('Exists'); const u = [...expenseTypes, t]; setExpenseTypes(u); localStorage.setItem('salon_expense_types', JSON.stringify(u)); setNewExpenseType(''); };
+  const handleDeleteExpenseType = (t) => { if (!window.confirm(`Delete "${t}"?`)) return; const u = expenseTypes.filter(x => x !== t); setExpenseTypes(u); localStorage.setItem('salon_expense_types', JSON.stringify(u)); };
+  const handleAddBlockout = () => { if (!newBlockout.date) return; const u = [...blockouts, newBlockout]; setBlockouts(u); localStorage.setItem('salon_blockouts', JSON.stringify(u)); setNewBlockout({ date: '', startTime: '00:00', endTime: '23:59', reason: '' }); };
+  const handleRemoveBlockout = (d) => { const u = blockouts.filter(b => b.date !== d); setBlockouts(u); localStorage.setItem('salon_blockouts', JSON.stringify(u)); };
 
   // 🛒 POS Logic
   const posSubtotal = posForm.items.reduce((sum, item) => {
     const svc = services.find(s => s.id === Number(item.serviceId));
     const qty = Number(item.qty) || 0;
-    return sum + (svc ? Number(svc.price) * qty : 0);
+    const base = svc ? Number(svc.price) * qty : 0;
+    const disc = Number(item.discount) || 0;
+    const adj = Number(item.adjustment) || 0;
+    return sum + Math.max(0, base - disc + adj);
   }, 0);
+  const posChange = posForm.paymentMethod === 'cash' ? Math.max(0, Number(posForm.amountTendered || 0) - posSubtotal) : 0;
 
-  const posDiscount = posForm.discountType === 'percent' 
-    ? posSubtotal * (Number(posForm.discountValue) || 0) / 100 
-    : posForm.discountType === 'fixed' 
-      ? Number(posForm.discountValue) || 0 
-      : 0;
-
-  const posTotal = posSubtotal - posDiscount;
-  const posChange = posForm.paymentMethod === 'cash' ? Math.max(0, Number(posForm.amountTendered || 0) - posTotal) : 0;
-
-  const updateItem = (index, field, value) => {
-    const updated = [...posForm.items]; updated[index] = { ...updated[index], [field]: value };
-    setPosForm({ ...posForm, items: updated });
+  const updateItem = (idx, field, val) => {
+    const u = [...posForm.items]; u[idx] = { ...u[idx], [field]: val };
+    setPosForm({ ...posForm, items: u });
   };
-  const addItemLine = () => setPosForm({ ...posForm, items: [...posForm.items, { serviceId: '', qty: 1 }] });
-  const removeItemLine = (index) => { if (posForm.items.length > 1) setPosForm({ ...posForm, items: posForm.items.filter((_, i) => i !== index) }); };
+  const addItemLine = () => setPosForm({ ...posForm, items: [...posForm.items, { serviceId: '', qty: 1, discount: 0, adjustment: 0 }] });
+  const removeItemLine = (idx) => { if (posForm.items.length > 1) setPosForm({ ...posForm, items: posForm.items.filter((_, i) => i !== idx) }); };
 
-  const loadBookingToPOS = (booking) => {
-    setSelectedBooking(booking);
-    setActiveTab('invoices');
-    setPosForm({
-      customerType: 'list', customerId: booking.customer_id.toString(), walkinName: '',
-      items: [{ serviceId: booking.service_id.toString(), qty: 1 }], paymentMethod: 'cash', amountTendered: '',
-      discountType: 'none', discountValue: ''
-    });
+  const loadBookingToPOS = (b) => {
+    setSelectedBooking(b); setActiveTab('invoices');
+    setPosForm({ customerType: 'list', customerId: b.customer_id.toString(), walkinName: '', items: [{ serviceId: b.service_id.toString(), qty: 1, discount: 0, adjustment: 0 }], paymentMethod: 'cash', amountTendered: '' });
   };
-
-  const clearBookingSelection = () => {
-    setSelectedBooking(null);
-    setPosForm({ customerType: 'list', customerId: '', walkinName: '', items: [{ serviceId: '', qty: 1 }], paymentMethod: 'cash', amountTendered: '', discountType: 'none', discountValue: '' });
-  };
+  const clearBookingSelection = () => { setSelectedBooking(null); setPosForm({ customerType: 'list', customerId: '', walkinName: '', items: [{ serviceId: '', qty: 1, discount: 0, adjustment: 0 }], paymentMethod: 'cash', amountTendered: '' }); };
 
   const handleCreateInvoice = async (e) => {
     e.preventDefault();
-    if (posTotal === 0) return setError('Add services to create an invoice');
-    if (posForm.paymentMethod === 'cash' && posChange < 0) return setError('Insufficient cash tendered');
+    if (posSubtotal === 0) return setError('Add services');
+    if (posForm.paymentMethod === 'cash' && posChange < 0) return setError('Insufficient cash');
     setIsLoading(true); setError(null);
     try {
-      const itemsPayload = posForm.items.map(i => { const svc = services.find(s => s.id === Number(i.serviceId)); return { service: svc?.name || 'Unknown', qty: i.qty, price: svc?.price || 0 }; });
-      const invData = {
-        customer_name: posForm.customerType === 'walkin' ? 'Walk-in Customer' : (customers.find(c => c.id == posForm.customerId)?.name || 'Unknown'),
-        items: JSON.stringify(itemsPayload), total_amount: posTotal, payment_method: posForm.paymentMethod,
-        amount_tendered: posForm.paymentMethod === 'cash' ? Number(posForm.amountTendered) : posTotal, change_amount: posChange, status: 'paid',
-        appointment_id: selectedBooking ? selectedBooking.id : null,
-        discount_type: posForm.discountType, discount_value: posForm.discountValue
-      };
-      const { error } = await supabase.from('invoices').insert(invData);
-      if (error) throw error;
-      
-      // Award loyalty points
-      if (posForm.customerId) {
-        const pointsEarned = Math.floor(posTotal / SALON_CONFIG.loyaltyRate);
-        if (pointsEarned > 0) {
-          await supabase.from('customers').update({ loyalty_points: (customers.find(c => c.id == posForm.customerId)?.loyalty_points || 0) + pointsEarned }).eq('id', posForm.customerId);
-        }
-      }
-      
+      const itemsPayload = posForm.items.map(i => { const svc = services.find(s => s.id === Number(i.serviceId)); return { service: svc?.name || 'Unknown', qty: i.qty, price: svc?.price || 0, discount: i.discount, adjustment: i.adjustment }; });
+      const invData = { customer_name: posForm.customerType === 'walkin' ? 'Walk-in' : (customers.find(c => c.id == posForm.customerId)?.name || 'Unknown'), items: JSON.stringify(itemsPayload), total_amount: posSubtotal, payment_method: posForm.paymentMethod, amount_tendered: posForm.paymentMethod === 'cash' ? Number(posForm.amountTendered) : posSubtotal, change_amount: posChange, status: 'paid', appointment_id: selectedBooking?.id || null };
+      const { error } = await supabase.from('invoices').insert(invData); if (error) throw error;
+      if (posForm.customerId) { const pts = Math.floor(posSubtotal / SALON_CONFIG.loyaltyRate); if (pts > 0) await supabase.from('customers').update({ loyalty_points: (customers.find(c => c.id == posForm.customerId)?.loyalty_points || 0) + pts }).eq('id', posForm.customerId); }
       if (selectedBooking) await supabase.from('appointments').update({ status: 'completed' }).eq('id', selectedBooking.id);
-      await fetchData();
-      clearBookingSelection();
-    } catch (err) { setError('Failed to create invoice: ' + err.message); } finally { setIsLoading(false); }
+      await fetchData(); clearBookingSelection();
+    } catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
   };
 
-  const redeemLoyalty = async (customerId, points) => {
-    if (!customerId) return setError('Select a customer first');
-    const customer = customers.find(c => c.id == customerId);
-    if (!customer || customer.loyalty_points < points) return setError('Insufficient loyalty points');
-    
-    const discount = points; // 1 point = $1 discount
-    setPosForm({ ...posForm, discountType: 'fixed', discountValue: discount.toString(), customerId });
-    setError(`✅ Redeemed ${points} points for $${discount} discount`);
+  const redeemLoyalty = async (cid, pts) => {
+    if (!cid) return setError('Select customer');
+    const c = customers.find(x => x.id == cid);
+    if (!c || c.loyalty_points < pts) return setError('Insufficient points');
+    setPosForm({ ...posForm, items: posForm.items.map((it, i) => i === 0 ? { ...it, adjustment: -pts } : it) });
+    setError(`✅ Redeemed ${pts} points (LKR ${pts} off)`);
   };
 
   const printInvoice = (inv) => {
     const items = typeof inv.items === 'string' ? JSON.parse(inv.items) : (inv.items || []);
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>Invoice #${inv.id}</title>
-      <style>body{font-family:monospace;width:320px;margin:0 auto;padding:10px}h1,h3{text-align:center;margin:5px 0}.line{border-top:1px dashed #000;margin:8px 0}.row{display:flex;justify-content:space-between;margin:4px 0;font-size:0.9rem}.total{font-weight:bold;font-size:1.2rem;margin-top:8px;text-align:right}@media print{body{margin:0}}</style></head><body>
-      <h1>${salonName}</h1><h3>Invoice #${inv.id}</h3>
-      <div class="row"><span>Date:</span><span>${new Date(inv.issued_at).toLocaleDateString()}</span></div>
-      <div class="row"><span>Customer:</span><span>${inv.customer_name}</span></div><div class="line"></div>
-      ${items.map(i => `<div class="row"><span>${i.qty}x ${i.service}</span><span>$${(i.price * i.qty).toFixed(2)}</span></div>`).join('')}
-      ${inv.discount_type !== 'none' ? `<div class="row"><span>Discount (${inv.discount_type === 'percent' ? inv.discount_value + '%' : '$' + inv.discount_value}):</span><span>-$${inv.discount_value}</span></div>` : ''}
-      <div class="line"></div>
-      <div class="row"><span>Total:</span><span>$${inv.total_amount.toFixed(2)}</span></div>
-      ${inv.payment_method === 'cash' ? `<div class="row"><span>Cash:</span><span>$${inv.amount_tendered?.toFixed(2) || '0.00'}</span></div><div class="total"><span>Change:</span><span>$${inv.change_amount?.toFixed(2) || '0.00'}</span></div>` : `<div class="row"><span>Method:</span><span>${inv.payment_method.toUpperCase()}</span></div>`}
-      <div class="line"></div><p style="text-align:center;margin-top:15px;font-size:0.85rem">PAID • Thank you! ❤️</p><script>window.print();window.close()</script></body></html>`);
+    const w = window.open('', '_blank');
+    w.document.write(`<!DOCTYPE html><html><head><title>Invoice #${inv.id}</title><style>body{font-family:monospace;width:320px;margin:0 auto;padding:10px}h1,h3{text-align:center;margin:5px 0}.line{border-top:1px dashed #000;margin:8px 0}.row{display:flex;justify-content:space-between;margin:4px 0;font-size:0.9rem}.total{font-weight:bold;font-size:1.2rem;margin-top:8px;text-align:right}@media print{body{margin:0}}</style></head><body><h1>${salonName}</h1><h3>Invoice #${inv.id}</h3><div class="row"><span>Date:</span><span>${new Date(inv.issued_at).toLocaleDateString()}</span></div><div class="row"><span>Customer:</span><span>${inv.customer_name}</span></div><div class="line"></div>${items.map(i => `<div class="row"><span>${i.qty}x ${i.service}</span><span>LKR ${((i.price*i.qty)-(i.discount||0)+(i.adjustment||0)).toFixed(2)}</span></div>`).join('')}<div class="line"></div><div class="row"><span>Total:</span><span>LKR ${inv.total_amount.toFixed(2)}</span></div>${inv.payment_method==='cash'?`<div class="row"><span>Cash:</span><span>LKR ${inv.amount_tendered?.toFixed(2)||'0.00'}</span></div><div class="total"><span>Change:</span><span>LKR ${inv.change_amount?.toFixed(2)||'0.00'}</span></div>`:`<div class="row"><span>Method:</span><span>${inv.payment_method.toUpperCase()}</span></div>`}<div class="line"></div><p style="text-align:center;margin-top:15px;font-size:0.85rem">PAID • Thank you! ❤️</p><script>window.print();window.close()</script></body></html>`);
   };
 
   const printLedger = (type) => {
@@ -381,86 +307,58 @@ export default function App() {
     const openBal = type === 'cash' ? openingCash : openingBank;
     const openDate = type === 'cash' ? cashOpenDate : bankOpenDate;
     const title = type === 'cash' ? 'Cash Book' : 'Bank & Card Ledger';
-    
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`<!DOCTYPE html><html><head><title>${title} ${ledgerFrom} to ${ledgerTo}</title>
-      <style>body{font-family:Arial,sans-serif;margin:40px auto;padding:20px;max-width:800px}h1{text-align:center;color:#1e3a8a;border-bottom:2px solid #1e3a8a;padding-bottom:10px}.meta{display:flex;justify-content:space-between;margin-bottom:20px;font-size:0.9rem;color:#64748b}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#f8fafc;font-weight:600}tfoot td{font-weight:bold;background:#f0f9ff}.inc{color:#10b981}.exp{color:#dc2626}@media print{body{margin:0}}</style></head><body>
-      <h1>${salonName}</h1><p style="text-align:center;font-size:1.1rem">${title} Statement</p>
-      <div class="meta"><span>Period: ${ledgerFrom} to ${ledgerTo}</span><span>Opening Balance: $${openBal.toFixed(2)} (as of ${openDate})</span></div>
-      <table><thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Balance</th></tr></thead><tbody>
-      ${data.txns.map(t => `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.desc}</td><td class="${t.type==='income'?'inc':'exp'}">${t.type==='income'?'+':'-'}$${t.amount.toFixed(2)}</td><td>$${t.balance.toFixed(2)}</td></tr>`).join('')}
-      </tbody><tfoot><tr><td colspan="3" style="text-align:right">Closing Balance:</td><td>$${data.closing.toFixed(2)}</td></tr></tfoot></table>
-      <p style="text-align:center;margin-top:30px;font-size:0.8rem;color:#94a3b8">Generated: ${new Date().toLocaleString()}</p>
-      <script>window.print();window.close()</script></body></html>`);
+    const w = window.open('', '_blank');
+    w.document.write(`<!DOCTYPE html><html><head><title>${title} ${ledgerFrom} to ${ledgerTo}</title><style>body{font-family:Arial,sans-serif;margin:40px auto;padding:20px;max-width:800px}h1{text-align:center;color:#1e3a8a;border-bottom:2px solid #1e3a8a;padding-bottom:10px}.meta{display:flex;justify-content:space-between;margin-bottom:20px;font-size:0.9rem;color:#64748b}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:8px 12px;border-bottom:1px solid #e2e8f0;text-align:left}th{background:#f8fafc;font-weight:600}tfoot td{font-weight:bold;background:#f0f9ff}.inc{color:#10b981}.exp{color:#dc2626}@media print{body{margin:0}}</style></head><body><h1>${salonName}</h1><p style="text-align:center;font-size:1.1rem">${title} Statement</p><div class="meta"><span>Period: ${ledgerFrom} to ${ledgerTo}</span><span>Opening Balance: LKR ${openBal.toFixed(2)} (as of ${openDate})</span></div><table><thead><tr><th>Date</th><th>Description</th><th>Amount</th><th>Balance</th></tr></thead><tbody>${data.txns.map(t => `<tr><td>${new Date(t.date).toLocaleDateString()}</td><td>${t.desc}</td><td class="${t.type==='income'?'inc':'exp'}">${t.type==='income'?'+':t.type==='opening'?'':'-'}LKR ${Math.abs(t.amount).toFixed(2)}</td><td>LKR ${t.balance.toFixed(2)}</td></tr>`).join('')}</tbody><tfoot><tr><td colspan="3" style="text-align:right">Closing Balance:</td><td>LKR ${data.closing.toFixed(2)}</td></tr></tfoot></table><p style="text-align:center;margin-top:30px;font-size:0.8rem;color:#94a3b8">Generated: ${new Date().toLocaleString()}</p><script>window.print();window.close()</script></body></html>`);
   };
 
-  // 💵 AUTO-LEDGER
+  // 💵 Ledger Data
   const accountingData = useMemo(() => {
-    const inPeriod = (dateStr) => {
-      if (!dateStr) return false;
-      const d = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-      return d >= ledgerFrom && d <= ledgerTo;
+    const inPeriod = (d) => { if (!d) return false; const s = d.includes('T') ? d.split('T')[0] : d; return s >= ledgerFrom && s <= ledgerTo; };
+    const build = (types, opening, openDate) => {
+      let txns = [], tIn = 0, tOut = 0;
+      if (inPeriod(openDate)) txns.push({ date: openDate, desc: '🏦 Opening Balance', amount: opening, type: 'opening' });
+      invoices.filter(inv => inv.status === 'paid' && inPeriod(inv.issued_at) && types.includes(inv.payment_method)).forEach(inv => { const a = Number(inv.total_amount||0); tIn += a; txns.push({ date: inv.issued_at.split('T')[0], desc: `INV #${inv.id} • ${inv.customer_name}`, amount: a, type: 'income' }); });
+      bills.filter(b => inPeriod(b.bill_date) && types.includes(b.payment_method)).forEach(b => { const a = Number(b.amount||0); tOut += a; txns.push({ date: b.bill_date, desc: `BILL • ${b.supplier_name} (${b.category})`, amount: a, type: 'expense' }); });
+      txns.sort((a,b) => new Date(a.date)-new Date(b.date));
+      let bal = inPeriod(openDate) ? 0 : opening;
+      txns = txns.map(t => { bal += (t.type==='opening'?t.amount:t.type==='income'?t.amount:-t.amount); return {...t, balance: bal}; });
+      return { txns, totalIn: tIn, totalOut: tOut, closing: bal };
     };
-
-    const buildLedger = (paymentTypes, opening, openingDate) => {
-      let txns = [];
-      let totalIn = 0, totalOut = 0;
-      
-      // Add opening balance as first transaction
-      if (inPeriod(openingDate)) {
-        txns.push({ date: openingDate, desc: ' Opening Balance', amount: opening, type: 'opening' });
-      }
-      
-      invoices.filter(inv => inv.status === 'paid' && inPeriod(inv.issued_at) && paymentTypes.includes(inv.payment_method))
-        .forEach(inv => {
-          const amt = Number(inv.total_amount || 0);
-          totalIn += amt;
-          txns.push({ date: inv.issued_at.split('T')[0], desc: `INV #${inv.id} • ${inv.customer_name}`, amount: amt, type: 'income' });
-        });
-      bills.filter(b => inPeriod(b.bill_date) && paymentTypes.includes(b.payment_method))
-        .forEach(b => {
-          const amt = Number(b.amount || 0);
-          totalOut += amt;
-          txns.push({ date: b.bill_date, desc: `BILL • ${b.supplier_name} (${b.category})`, amount: amt, type: 'expense' });
-        });
-      txns.sort((a, b) => new Date(a.date) - new Date(b.date));
-      let runBal = inPeriod(openingDate) ? 0 : opening;
-      txns = txns.map(t => {
-        runBal += (t.type === 'opening' ? t.amount : t.type === 'income' ? t.amount : -t.amount);
-        return { ...t, balance: runBal };
-      });
-      return { txns, totalIn, totalOut, closing: runBal };
-    };
-
-    return {
-      cash: buildLedger(['cash'], openingCash, cashOpenDate),
-      bank: buildLedger(['card', 'transfer', 'bank_transfer', 'credit_card', 'debit_card'], openingBank, bankOpenDate)
-    };
+    return { cash: build(['cash'], openingCash, cashOpenDate), bank: build(['card','transfer','bank_transfer','credit_card','debit_card'], openingBank, bankOpenDate) };
   }, [invoices, bills, ledgerFrom, ledgerTo, openingCash, openingBank, cashOpenDate, bankOpenDate]);
 
-  const upcomingBookings = appointments.filter(a => a.status === 'booked');
-
-  //  Dashboard Data
+  // 📊 Dashboard Data
   const dashboardData = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    const thisMonth = today.slice(0, 7);
-    const todayInvoices = invoices.filter(inv => inv.status === 'paid' && inv.issued_at?.startsWith(today));
-    const monthInvoices = invoices.filter(inv => inv.status === 'paid' && inv.issued_at?.startsWith(thisMonth));
-    const todayBookings = appointments.filter(a => a.time?.startsWith(today));
-    const todayRevenue = todayInvoices.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
-    const monthRevenue = monthInvoices.reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
-    const todayBills = bills.filter(b => b.bill_date === today);
-    const todayExpenses = todayBills.reduce((sum, b) => sum + Number(b.amount || 0), 0);
-    
-    // Monthly breakdown for charts
-    const monthlyData = {};
-    invoices.filter(inv => inv.status === 'paid').forEach(inv => {
-      const month = inv.issued_at?.slice(0, 7);
-      if (month) monthlyData[month] = (monthlyData[month] || 0) + Number(inv.total_amount || 0);
+    const now = new Date();
+    const y = now.getFullYear().toString();
+    const m = (now.getMonth()+1).toString().padStart(2,'0');
+    const d = now.getDate().toString().padStart(2,'0');
+    const todayStr = `${y}-${m}-${d}`;
+    const monthStr = `${y}-${m}`;
+
+    const filterByPeriod = (dateStr) => {
+      if (!dateStr) return false;
+      const s = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+      if (chartPeriod === 'day') return s === todayStr;
+      if (chartPeriod === 'month') return s.startsWith(monthStr);
+      if (chartPeriod === 'year') return s.startsWith(y);
+      return true;
+    };
+
+    const revData = {}; const expData = {};
+    invoices.filter(inv => inv.status === 'paid' && filterByPeriod(inv.issued_at)).forEach(inv => {
+      const k = chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? inv.issued_at.slice(0,7) : inv.issued_at.slice(0,4);
+      revData[k] = (revData[k] || 0) + Number(inv.total_amount || 0);
     });
-    
-    return { todayInvoices: todayInvoices.length, monthInvoices: monthInvoices.length, todayBookings: todayBookings.length, todayRevenue, monthRevenue, todayExpenses, monthlyData };
-  }, [invoices, appointments, bills]);
+    bills.filter(b => filterByPeriod(b.bill_date)).forEach(b => {
+      const k = chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? b.bill_date.slice(0,7) : b.bill_date.slice(0,4);
+      expData[k] = (expData[k] || 0) + Number(b.amount || 0);
+    });
+
+    return { revData, expData, period: chartPeriod };
+  }, [invoices, bills, chartPeriod]);
+
+  const upcomingBookings = appointments.filter(a => a.status === 'booked');
 
   // 🔐 Login
   if (!session) {
@@ -491,34 +389,30 @@ export default function App() {
           .table-wrap { font-size: 0.85rem !important; }
           th, td { padding: 6px 4px !important; }
           .dashboard-grid { grid-template-columns: 1fr !important; }
+          .mobile-stack { order: 1; } .mobile-stack-2 { order: 2; }
         }
-        @media (min-width: 641px) and (max-width: 1024px) {
-          .card-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        }
+        @media (min-width: 641px) and (max-width: 1024px) { .card-grid { grid-template-columns: repeat(2, 1fr) !important; } }
       `}</style>
 
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundImage: 'url("https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1920&q=80")', backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.05, zIndex: -1 }} />
       
       <div style={{ background: '#1e3a8a', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {salonLogo && <img src={salonLogo} alt="Salon Logo" style={{ height: '40px', borderRadius: '8px' }} />}
+          {salonLogo && <img src={salonLogo} alt="Logo" style={{ height: '40px', borderRadius: '8px' }} />}
           <div>
             <span style={{ color: '#fff', fontSize: 'clamp(1.1rem, 2.5vw, 1.5rem)', fontWeight: '700', display: 'block', lineHeight: '1.2' }}>{salonName}</span>
             <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '0.8rem', marginTop: '2px' }}>{SALON_CONFIG.address} • {SALON_CONFIG.telephone}</div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ color: '#fff', fontSize: '0.85rem', textAlign: 'right' }}>
-            <div>{currentTime.toLocaleDateString()}</div>
-            <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{currentTime.toLocaleTimeString()}</div>
-          </div>
+          <div style={{ color: '#fff', fontSize: '0.85rem', textAlign: 'right' }}><div>{currentTime.toLocaleDateString()}</div><div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{currentTime.toLocaleTimeString()}</div></div>
           <button onClick={handleLogout} style={{ padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>🚪 Logout</button>
         </div>
       </div>
       
       <div className="main-container" style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', fontFamily: 'system-ui' }}>
-        {error && <div style={{ background: '#fef2f2', color: '#991b1b', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>⚠️ {error}</div>}
-        {isLoading && <div style={{ textAlign: 'center', padding: '10px', color: '#64748b' }}> Syncing...</div>}
+        {error && <div style={{ background: '#fef2f2', color: '#991b1b', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>️ {error}</div>}
+        {isLoading && <div style={{ textAlign: 'center', padding: '10px', color: '#64748b' }}>⏳ Syncing...</div>}
         
         <nav className="nav-tabs" style={{ display: 'flex', gap: '6px', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', overflowX: 'auto' }}>
           {['dashboard', 'bookings', 'invoices', 'services', 'suppliers_expenses', 'cash_bank', 'statements'].map(tab => (
@@ -529,65 +423,85 @@ export default function App() {
         </nav>
 
         <main>
-          {/* 📊 Dashboard */}
+          {/*  Dashboard */}
           {activeTab === 'dashboard' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                 <div style={{ background: '#f0fdf4', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
                   <div style={{ fontSize: '2rem' }}>📅</div>
-                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#15803d' }}>{dashboardData.todayBookings}</div>
-                  <div style={{ fontSize: '0.9rem', color: '#166534' }}>Today's Bookings</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#15803d' }}>{appointments.filter(a => a.status === 'booked').length}</div>
+                  <div style={{ fontSize: '0.9rem', color: '#166534' }}>Active Bookings</div>
                 </div>
                 <div style={{ background: '#eff6ff', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
                   <div style={{ fontSize: '2rem' }}>💵</div>
-                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#2563eb' }}>${dashboardData.todayRevenue.toFixed(0)}</div>
-                  <div style={{ fontSize: '0.9rem', color: '#1e40af' }}>Today's Revenue</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#2563eb' }}>LKR {dashboardData.revData[dashboardData.period === 'day' ? 'Today' : Object.keys(dashboardData.revData).pop()]?.toFixed(0) || '0'}</div>
+                  <div style={{ fontSize: '0.9rem', color: '#1e40af' }}>{dashboardData.period === 'day' ? 'Today' : dashboardData.period === 'month' ? 'This Month' : 'This Year'} Revenue</div>
                 </div>
                 <div style={{ background: '#fef2f2', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem' }}>📉</div>
-                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#dc2626' }}>${dashboardData.todayExpenses.toFixed(0)}</div>
-                  <div style={{ fontSize: '0.9rem', color: '#991b1b' }}>Today's Expenses</div>
+                  <div style={{ fontSize: '2rem' }}></div>
+                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#dc2626' }}>LKR {dashboardData.expData[dashboardData.period === 'day' ? 'Today' : Object.keys(dashboardData.expData).pop()]?.toFixed(0) || '0'}</div>
+                  <div style={{ fontSize: '0.9rem', color: '#991b1b' }}>{dashboardData.period === 'day' ? 'Today' : dashboardData.period === 'month' ? 'This Month' : 'This Year'} Expenses</div>
                 </div>
-                <div style={{ background: '#f5f3ff', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: '2rem' }}>📊</div>
-                  <div style={{ fontSize: '2rem', fontWeight: '700', color: '#7c3aed' }}>{dashboardData.monthInvoices}</div>
-                  <div style={{ fontSize: '0.9rem', color: '#5b21b6' }}>Monthly Invoices</div>
-                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
+                {['day', 'month', 'year'].map(p => (
+                  <button key={p} onClick={() => setChartPeriod(p)} style={{ padding: '6px 12px', background: chartPeriod === p ? '#3b82f6' : '#f1f5f9', color: chartPeriod === p ? '#fff' : '#334155', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: chartPeriod === p ? '600' : '400' }}>{p.charAt(0).toUpperCase() + p.slice(1)}</button>
+                ))}
               </div>
 
               {/* Revenue Chart */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h3>📈 Monthly Revenue Trend</h3>
+                <h3> Revenue Trend</h3>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '150px', marginTop: '1rem' }}>
-                  {Object.entries(dashboardData.monthlyData).slice(-6).map(([month, amount], i) => {
-                    const maxVal = Math.max(...Object.values(dashboardData.monthlyData), 1);
-                    const height = Math.max((amount / maxVal) * 100, 5);
+                  {Object.entries(dashboardData.revData).map(([k, v], i) => {
+                    const max = Math.max(...Object.values(dashboardData.revData), 1);
+                    const h = Math.max((v / max) * 100, 5);
                     return (
-                      <div key={month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                        <div style={{ width: '100%', height: `${height}%`, background: `linear-gradient(to top, #3b82f6, #60a5fa)`, borderRadius: '4px 4px 0 0', minWidth: '30px' }}></div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{month.slice(5)}</div>
-                        <div style={{ fontSize: '0.75rem', fontWeight: '600' }}>${(amount/1000).toFixed(1)}k</div>
+                      <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                        <div style={{ width: '100%', height: `${h}%`, background: 'linear-gradient(to top, #3b82f6, #60a5fa)', borderRadius: '4px 4px 0 0', minWidth: '30px' }}></div>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{k}</div>
+                        <div style={{ fontSize: '0.75rem', fontWeight: '600' }}>LKR {(v/1000).toFixed(1)}k</div>
                       </div>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Expense Breakdown */}
+              {/* Expense Pie Chart */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                 <h3>💸 Expense Breakdown</h3>
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '1rem' }}>
-                  {['materials', 'labour', 'utilities', 'rent', 'marketing', 'other'].map(cat => {
-                    const catBills = bills.filter(b => b.category === cat);
-                    const catTotal = catBills.reduce((sum, b) => sum + Number(b.amount || 0), 0);
-                    if (catTotal === 0) return null;
-                    return (
-                      <div key={cat} style={{ flex: '1 1 120px', background: '#f8fafc', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
-                        <div style={{ fontSize: '1.5rem', marginBottom: '4px' }}>{cat === 'materials' ? '📦' : cat === 'labour' ? '👷' : cat === 'utilities' ? '' : cat === 'rent' ? '' : cat === 'marketing' ? '📢' : '📋'}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#64748b', textTransform: 'capitalize' }}>{cat}</div>
-                        <div style={{ fontSize: '1.2rem', fontWeight: '700', color: '#dc2626' }}>${catTotal.toFixed(0)}</div>
-                      </div>
-                    );
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: '1rem' }}>
+                  <svg width="200" height="200" viewBox="0 0 200 200">
+                    {(() => {
+                      const cats = ['materials', 'labour', 'utilities', 'rent', 'marketing', 'other'];
+                      const data = cats.map(c => ({ name: c, val: bills.filter(b => b.category === c).reduce((s,b) => s + Number(b.amount||0), 0) })).filter(x => x.val > 0);
+                      const total = data.reduce((s,x) => s + x.val, 0);
+                      if (total === 0) return <text x="100" y="100" textAnchor="middle" fill="#64748b">No Data</text>;
+                      let start = 0;
+                      const colors = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#6b7280'];
+                      return data.map((d, i) => {
+                        const angle = (d.val / total) * 360;
+                        const x1 = 100 + 80 * Math.cos(Math.PI * 2 * start / 360);
+                        const y1 = 100 + 80 * Math.sin(Math.PI * 2 * start / 360);
+                        start += angle;
+                        const x2 = 100 + 80 * Math.cos(Math.PI * 2 * start / 360);
+                        const y2 = 100 + 80 * Math.sin(Math.PI * 2 * start / 360);
+                        const large = angle > 180 ? 1 : 0;
+                        return (
+                          <path key={d.name} d={`M100,100 L${x1},${y1} A80,80 0 ${large},1 ${x2},${y2} Z`} fill={colors[i % colors.length]} stroke="#fff" strokeWidth="2" />
+                        );
+                      });
+                    })()}
+                    <circle cx="100" cy="100" r="40" fill="#fff" />
+                    <text x="100" y="100" textAnchor="middle" fill="#334155" fontSize="12" fontWeight="bold">Total</text>
+                  </svg>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', justifyContent: 'center', marginTop: '1rem' }}>
+                  {['materials', 'labour', 'utilities', 'rent', 'marketing', 'other'].map((c, i) => {
+                    const val = bills.filter(b => b.category === c).reduce((s,b) => s + Number(b.amount||0), 0);
+                    if (val === 0) return null;
+                    return <span key={c} style={{ fontSize: '0.8rem', color: '#64748b' }}><span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#6b7280'][i], marginRight: '4px' }}></span>{c}: LKR {val.toFixed(0)}</span>;
                   })}
                 </div>
               </div>
@@ -597,11 +511,12 @@ export default function App() {
           {/* 👥 Booking & Customers */}
           {activeTab === 'bookings' && (
             <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+              {/* Customer Add & Search */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2> Add Customer</h2>
+                <h2>👥 Add Customer</h2>
                 <form onSubmit={handleAddCustomer} style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
                   <input value={newCustomer.name} onChange={e => setNewCustomer({...newCustomer, name: e.target.value})} placeholder="Name" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-                  <input value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} placeholder="Phone" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                  <input value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} placeholder="Phone (10 digits)" maxLength="10" style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                     <select value={newCustomer.gender} onChange={e => setNewCustomer({...newCustomer, gender: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                       <option value="">Gender</option>
@@ -613,69 +528,66 @@ export default function App() {
                   <button type="submit" disabled={isLoading} style={{ padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '+ Add Customer'}</button>
                 </form>
                 
-                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>Customers ({customers.length})</h3>
-                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-                  {customers.map(c => (
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>📅 Add Booking</h3>
+                <form onSubmit={handleBookAppointment} style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
+                  <select value={newAppointment.customerId} onChange={e => setNewAppointment({...newAppointment, customerId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+                  <select value={newAppointment.serviceId} onChange={e => setNewAppointment({...newAppointment, serviceId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (LKR {s.price})</option>)}</select>
+                  <input type="datetime-local" value={newAppointment.time} onChange={e => setNewAppointment({...newAppointment, time: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                  <button type="submit" disabled={isLoading || !services.length} style={{ padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>✅ Book Appointment</button>
+                </form>
+
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>🔍 Search Customers</h3>
+                <input placeholder="Name or Phone..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
+                
+                <h3 style={{ marginTop: '1rem', marginBottom: '1rem' }}>Customers ({customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone.includes(customerSearch)).length})</h3>
+                <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
+                  {customers.filter(c => c.name.toLowerCase().includes(customerSearch.toLowerCase()) || c.phone.includes(customerSearch)).map(c => (
                     <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
-                      <div>
-                        <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{c.name}</strong>
-                        <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>{c.phone} {c.gender ? `• ${c.gender}` : ''} {c.age ? `• ${c.age}y` : ''}</div>
-                        {c.loyalty_points > 0 && <div style={{ fontSize: '0.8rem', color: '#7c3aed', marginTop: '2px' }}>⭐ {c.loyalty_points} points</div>}
-                      </div>
+                      <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{c.name}</strong><div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>{c.phone} {c.gender ? `• ${c.gender}` : ''} {c.age ? `• ${c.age}y` : ''}{c.loyalty_points > 0 && ` • ⭐${c.loyalty_points}`}</div></div>
                       <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
-                        {c.loyalty_points > 0 && <button onClick={() => setShowLoyaltyCard(c)} style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.75rem' }}>🎴 Card</button>}
-                        <button onClick={() => handleEditCustomer(c.id)} style={{ background: '#fff', color: '#d97706', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>✏️</button>
-                        <button onClick={() => handleDeleteCustomer(c.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>🗑️</button>
+                        {c.loyalty_points > 0 && <button onClick={() => setShowLoyaltyCard(c)} style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.75rem' }}>🎴 View Card</button>}
+                        <button onClick={() => handleEditCustomer(c.id)} style={{ background: '#fff', color: '#d97706', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>✏️ Edit</button>
+                        <button onClick={() => handleDeleteCustomer(c.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>🗑️ Delete</button>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Blockouts */}
+              {/* Blockouts & Bookings List */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2> Blocked Dates</h2>
-                <form onSubmit={e => { e.preventDefault(); handleAddBlockout(); }} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-                  <input type="date" value={newBlockout.date} onChange={e => setNewBlockout({...newBlockout, date: e.target.value})} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-                  <input placeholder="Reason" value={newBlockout.reason} onChange={e => setNewBlockout({...newBlockout, reason: e.target.value})} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                  <button type="submit" style={{ padding: '8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>Block</button>
+                <h2>🚫 Block Dates/Hours</h2>
+                <form onSubmit={e => { e.preventDefault(); handleAddBlockout(); }} style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+                  <input type="date" value={newBlockout.date} onChange={e => setNewBlockout({...newBlockout, date: e.target.value})} style={{ flex: 1, minWidth: '120px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                  <input type="time" value={newBlockout.startTime} onChange={e => setNewBlockout({...newBlockout, startTime: e.target.value})} style={{ width: '80px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                  <span style={{ alignSelf: 'center' }}>-</span>
+                  <input type="time" value={newBlockout.endTime} onChange={e => setNewBlockout({...newBlockout, endTime: e.target.value})} style={{ width: '80px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                  <input placeholder="Reason" value={newBlockout.reason} onChange={e => setNewBlockout({...newBlockout, reason: e.target.value})} style={{ flex: 1, minWidth: '100px', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                  <button type="submit" style={{ padding: '8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🚫 Block Time</button>
                 </form>
                 <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
                   {blockouts.map(b => (
-                    <div key={b.date} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
-                      <div><strong>{new Date(b.date).toLocaleDateString()}</strong> • {b.reason || 'Blocked'}</div>
-                      <button onClick={() => handleRemoveBlockout(b.date)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>✕</button>
+                    <div key={b.date+b.startTime} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
+                      <div><strong>{new Date(b.date).toLocaleDateString()}</strong> {b.startTime} - {b.endTime} • {b.reason || 'Blocked'}</div>
+                      <button onClick={() => handleRemoveBlockout(b.date+b.startTime)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '4px', padding: '2px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>✕ Remove</button>
                     </div>
                   ))}
                 </div>
-              </div>
 
-              {/* Bookings List */}
-              <div className="card-grid" style={{ gridTemplateColumns: '1fr', marginTop: '0.5rem' }}>
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                  <h2>📅 Bookings ({appointments.length})</h2>
-                  <form onSubmit={handleBookAppointment} className="form-row" style={{ display: 'grid', gap: '0.5rem', gridTemplateColumns: '1fr 1fr' }}>
-                    <select value={newAppointment.customerId} onChange={e => setNewAppointment({...newAppointment, customerId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
-                    <select value={newAppointment.serviceId} onChange={e => setNewAppointment({...newAppointment, serviceId: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (${s.price})</option>)}</select>
-                    <input type="datetime-local" value={newAppointment.time} onChange={e => setNewAppointment({...newAppointment, time: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', gridColumn: '1 / -1' }} />
-                    <button type="submit" disabled={isLoading || !services.length} style={{ padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', gridColumn: '1 / -1' }}>✅ Book</button>
-                  </form>
-                  <div style={{ marginTop: '1rem', maxHeight: '350px', overflowY: 'auto' }}>
-                    <input placeholder="🔍 Filter..." value={bookingsFilter} onChange={e => setBookingsFilter(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                    {appointments.filter(a => a.customer_name?.toLowerCase().includes(bookingsFilter.toLowerCase()) || a.service_name?.toLowerCase().includes(bookingsFilter.toLowerCase())).map(a => (
-                      <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
-                        <div><strong>{a.customer_name}</strong> • {a.service_name}<div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(a.time).toLocaleString()}</div></div>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          {a.status === 'booked' && <button onClick={() => loadBookingToPOS(a)} style={{ padding: '4px 8px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>💳 Invoice</button>}
-                          <select value={a.status} onChange={e => handleStatusChange(a.id, e.target.value)} style={{ padding: '4px', borderRadius: '12px', border: 'none', fontWeight: '600', fontSize: '0.75rem', background: a.status==='booked'?'#dbeafe':a.status==='completed'?'#dcfce7':'#fee2e2', color: a.status==='booked'?'#1d4ed8':a.status==='completed'?'#166534':'#991b1b' }}>
-                            <option value="booked">BOOKED</option>
-                            <option value="completed">COMPLETED</option>
-                            <option value="cancelled">CANCELLED</option>
-                          </select>
-                        </div>
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}> All Bookings ({appointments.length})</h3>
+                <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+                  <input placeholder="🔍 Filter bookings..." value={bookingsFilter} onChange={e => setBookingsFilter(e.target.value)} style={{ width: '100%', padding: '8px', marginBottom: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                  {appointments.filter(a => a.customer_name?.toLowerCase().includes(bookingsFilter.toLowerCase()) || a.service_name?.toLowerCase().includes(bookingsFilter.toLowerCase())).map(a => (
+                    <div key={a.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
+                      <div><strong>{a.customer_name}</strong> • {a.service_name}<div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(a.time).toLocaleString()}</div></div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {a.status === 'booked' && <button onClick={() => loadBookingToPOS(a)} style={{ padding: '4px 8px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>💳 Create Invoice</button>}
+                        <select value={a.status} onChange={e => handleStatusChange(a.id, e.target.value)} style={{ padding: '4px', borderRadius: '12px', border: 'none', fontWeight: '600', fontSize: '0.75rem', background: a.status==='booked'?'#dbeafe':a.status==='completed'?'#dcfce7':'#fee2e2', color: a.status==='booked'?'#1d4ed8':a.status==='completed'?'#166534':'#991b1b' }}>
+                          <option value="booked">BOOKED</option><option value="completed">COMPLETED</option><option value="cancelled">CANCELLED</option>
+                        </select>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -685,15 +597,15 @@ export default function App() {
           {activeTab === 'invoices' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>🧾 Create Invoice</h2>
+                <h2> Create Invoice</h2>
                 {upcomingBookings.length > 0 && !selectedBooking && (
                   <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
                     <h3 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0369a1' }}>📅 Quick Select Booking</h3>
                     <div style={{ display: 'grid', gap: '6px', maxHeight: '150px', overflowY: 'auto' }}>
-                      {upcomingBookings.slice(0, 5).map(booking => (
-                        <div key={booking.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', background: '#fff', borderRadius: '6px' }}>
-                          <div style={{ fontSize: '0.9rem' }}><strong>{booking.customer_name}</strong> • {booking.service_name}<div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(booking.time).toLocaleString()}</div></div>
-                          <button onClick={() => loadBookingToPOS(booking)} style={{ padding: '4px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Select</button>
+                      {upcomingBookings.slice(0, 5).map(b => (
+                        <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', background: '#fff', borderRadius: '6px' }}>
+                          <div style={{ fontSize: '0.9rem' }}><strong>{b.customer_name}</strong> • {b.service_name}<div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(b.time).toLocaleString()}</div></div>
+                          <button onClick={() => loadBookingToPOS(b)} style={{ padding: '4px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>Select Booking</button>
                         </div>
                       ))}
                     </div>
@@ -702,7 +614,7 @@ export default function App() {
                 {selectedBooking && (
                   <div style={{ marginBottom: '1rem', padding: '10px', background: '#dcfce7', borderRadius: '8px', border: '1px solid #86efac', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div><strong>📅 Booking:</strong> {selectedBooking.customer_name} - {selectedBooking.service_name}</div>
-                    <button onClick={clearBookingSelection} style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕ Clear</button>
+                    <button onClick={clearBookingSelection} style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕ Clear Selection</button>
                   </div>
                 )}
                 <form onSubmit={handleCreateInvoice} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -710,51 +622,55 @@ export default function App() {
                     <div>
                       <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Customer</label>
                       <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
-                        <button type="button" onClick={() => setPosForm({...posForm, customerType: 'list'})} style={{ flex: 1, padding: '6px', background: posForm.customerType==='list'?'#3b82f6':'#e2e8f0', color: posForm.customerType==='list'?'#fff':'#333', border:'none', borderRadius:'6px 0 0 6px', cursor:'pointer' }}>List</button>
+                        <button type="button" onClick={() => setPosForm({...posForm, customerType: 'list'})} style={{ flex: 1, padding: '6px', background: posForm.customerType==='list'?'#3b82f6':'#e2e8f0', color: posForm.customerType==='list'?'#fff':'#333', border:'none', borderRadius:'6px 0 0 6px', cursor:'pointer' }}>From List</button>
                         <button type="button" onClick={() => setPosForm({...posForm, customerType: 'walkin'})} style={{ flex: 1, padding: '6px', background: posForm.customerType==='walkin'?'#3b82f6':'#e2e8f0', color: posForm.customerType==='walkin'?'#fff':'#333', border:'none', borderRadius:'0 6px 6px 0', cursor:'pointer' }}>Walk-in</button>
                       </div>
                       {posForm.customerType === 'list' ? (
                         <>
-                          <select value={posForm.customerId} onChange={e => { setPosForm({...posForm, customerId: e.target.value}); if(showLoyaltyCard) setShowLoyaltyCard(null); }} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Select</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name} (${c.loyalty_points || 0} pts)</option>)}</select>
+                          <select value={posForm.customerId} onChange={e => { setPosForm({...posForm, customerId: e.target.value}); if(showLoyaltyCard) setShowLoyaltyCard(null); }} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Select Customer</option>{customers.map(c => <option key={c.id} value={c.id}>{c.name} ({c.loyalty_points||0} pts)</option>)}</select>
                           {posForm.customerId && customers.find(c => c.id == posForm.customerId)?.loyalty_points > 0 && (
                             <div style={{ marginTop: '6px', display: 'flex', gap: '4px', alignItems: 'center' }}>
                               <span style={{ fontSize: '0.8rem', color: '#7c3aed' }}>⭐ {customers.find(c => c.id == posForm.customerId)?.loyalty_points} pts</span>
-                              <button type="button" onClick={() => redeemLoyalty(posForm.customerId, Math.floor(posForm.customerId ? customers.find(c => c.id == posForm.customerId).loyalty_points : 0))} style={{ padding: '4px 8px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Redeem All</button>
+                              <button type="button" onClick={() => redeemLoyalty(posForm.customerId, Math.floor(posForm.customerId ? customers.find(c => c.id == posForm.customerId).loyalty_points : 0))} style={{ padding: '4px 8px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75rem' }}>Redeem Points</button>
                             </div>
                           )}
                         </>
                       ) : <input placeholder="Walk-in Name" value={posForm.walkinName} onChange={e => setPosForm({...posForm, walkinName: e.target.value})} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />}
                     </div>
                     <div>
-                      <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Payment</label>
-                      <select value={posForm.paymentMethod} onChange={e => setPosForm({...posForm, paymentMethod: e.target.value})} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="cash">💵 Cash</option><option value="card">💳 Card</option><option value="transfer">🏦 Transfer</option></select>
+                      <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Payment Method</label>
+                      <select value={posForm.paymentMethod} onChange={e => setPosForm({...posForm, paymentMethod: e.target.value})} style={{ marginTop: '4px', width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="cash">💵 Cash</option><option value="card">💳 Card</option><option value="transfer">🏦 Bank Transfer</option></select>
                     </div>
                   </div>
                   <div>
                     <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Services</label>
-                    {posForm.items.map((item, idx) => (
-                      <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '8px', marginTop: '6px' }}>
-                        <select value={item.serviceId} onChange={e => updateItem(idx, 'serviceId', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (${s.price})</option>)}</select>
-                        <input type="tel" inputMode="numeric" value={item.qty} onChange={e => updateItem(idx, 'qty', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                        <button type="button" onClick={() => removeItemLine(idx)} style={{ padding: '8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🗑️</button>
-                      </div>
-                    ))}
-                    <button type="button" onClick={addItemLine} style={{ marginTop: '8px', padding: '6px 12px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>+ Add Line</button>
+                    {posForm.items.map((item, idx) => {
+                      const svc = services.find(s => s.id === Number(item.serviceId));
+                      const base = svc ? Number(svc.price) * (Number(item.qty)||0) : 0;
+                      const disc = Number(item.discount)||0;
+                      const adj = Number(item.adjustment)||0;
+                      return (
+                        <div key={idx} style={{ background: '#f8fafc', padding: '8px', borderRadius: '6px', marginBottom: '8px' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto', gap: '8px', marginBottom: '6px' }}>
+                            <select value={item.serviceId} onChange={e => updateItem(idx, 'serviceId', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}><option value="">Select Service</option>{services.map(s => <option key={s.id} value={s.id}>{s.name} (LKR {s.price})</option>)}</select>
+                            <input type="tel" inputMode="numeric" placeholder="Qty" value={item.qty} onChange={e => updateItem(idx, 'qty', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                            <button type="button" onClick={() => removeItemLine(idx)} style={{ padding: '8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🗑️ Remove</button>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <input type="tel" inputMode="numeric" placeholder="Discount (-)" value={item.discount || ''} onChange={e => updateItem(idx, 'discount', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', color: disc > 0 ? '#dc2626' : 'inherit' }} />
+                            <input type="tel" inputMode="numeric" placeholder="Adjustment (+)" value={item.adjustment || ''} onChange={e => updateItem(idx, 'adjustment', e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', color: adj > 0 ? '#10b981' : 'inherit' }} />
+                          </div>
+                          <div style={{ textAlign: 'right', marginTop: '4px', fontSize: '0.85rem', fontWeight: '600' }}>Line Total: LKR {Math.max(0, base - disc + adj).toFixed(2)}</div>
+                        </div>
+                      );
+                    })}
+                    <button type="button" onClick={addItemLine} style={{ marginTop: '8px', padding: '6px 12px', background: '#64748b', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>+ Add Service Line</button>
                   </div>
                   <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}><span>Subtotal:</span><strong>${posSubtotal.toFixed(2)}</strong></div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '8px' }}>
-                      <select value={posForm.discountType} onChange={e => setPosForm({...posForm, discountType: e.target.value, discountValue: ''})} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
-                        <option value="none">No Discount</option>
-                        <option value="percent">% Discount</option>
-                        <option value="fixed">$ Fixed Discount</option>
-                      </select>
-                      {posForm.discountType !== 'none' && <input type="tel" inputMode="numeric" placeholder={posForm.discountType === 'percent' ? 'Percent %' : 'Amount $'} value={posForm.discountValue} onChange={e => setPosForm({...posForm, discountValue: e.target.value})} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '1.1rem', fontWeight: '700' }}><span>Total:</span><strong>${posTotal.toFixed(2)}</strong></div>
-                    {posForm.paymentMethod === 'cash' && <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><input type="tel" inputMode="numeric" placeholder="Cash Tendered" value={posForm.amountTendered} onChange={e => setPosForm({...posForm, amountTendered: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} /><div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem' }}>Change Due</div><strong style={{ fontSize: '1.2rem', color: posChange >= 0 ? '#166534' : '#dc2626' }}>${posChange.toFixed(2)}</strong></div></div>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '1.1rem', fontWeight: '700' }}><span>Total Amount:</span><strong>LKR {posSubtotal.toFixed(2)}</strong></div>
+                    {posForm.paymentMethod === 'cash' && <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}><input type="tel" inputMode="numeric" placeholder="Cash Tendered" value={posForm.amountTendered} onChange={e => setPosForm({...posForm, amountTendered: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} /><div style={{ textAlign: 'right' }}><div style={{ fontSize: '0.8rem' }}>Change Due</div><strong style={{ fontSize: '1.2rem', color: posChange >= 0 ? '#166534' : '#dc2626' }}>LKR {posChange.toFixed(2)}</strong></div></div>}
                   </div>
-                  <button type="submit" disabled={isLoading || posTotal === 0} style={{ padding: '12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1.1rem', fontWeight: '600' }}>{isLoading ? 'Processing...' : selectedBooking ? '✅ Complete & Invoice' : '✅ Create Invoice'}</button>
+                  <button type="submit" disabled={isLoading || posSubtotal === 0} style={{ padding: '12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '1.1rem', fontWeight: '600' }}>{isLoading ? 'Processing...' : selectedBooking ? '✅ Complete Booking & Invoice' : '✅ Create Invoice'}</button>
                 </form>
               </div>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
@@ -764,9 +680,9 @@ export default function App() {
                     <div key={inv.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9', alignItems: 'center' }}>
                       <div><strong>#{inv.id}</strong> • {inv.customer_name}<br/><span style={{ fontSize: '0.8rem', color: '#64748b' }}>{inv.payment_method.toUpperCase()} • {new Date(inv.issued_at).toLocaleDateString()}</span></div>
                       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <span style={{ fontWeight: '600' }}>${inv.total_amount.toFixed(2)}</span>
-                        <button onClick={() => printInvoice(inv)} style={{ padding: '6px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🖨️ Print</button>
-                        <button onClick={() => { if(window.confirm('Delete?')) { supabase.from('invoices').delete().eq('id', inv.id).then(() => fetchData()); }}} style={{ padding: '6px 10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🗑️</button>
+                        <span style={{ fontWeight: '600' }}>LKR {inv.total_amount.toFixed(2)}</span>
+                        <button onClick={() => printInvoice(inv)} style={{ padding: '6px 10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Invoice</button>
+                        <button onClick={() => { if(window.confirm('Delete this invoice?')) { supabase.from('invoices').delete().eq('id', inv.id).then(() => fetchData()); }}} style={{ padding: '6px 10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🗑️ Delete</button>
                       </div>
                     </div>
                   ))}
@@ -775,7 +691,7 @@ export default function App() {
             </div>
           )}
 
-          {/* ️ Services */}
+          {/* ⚙️ Services */}
           {activeTab === 'services' && (
             <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
@@ -783,23 +699,23 @@ export default function App() {
                 <form onSubmit={editingService ? handleUpdateService : handleAddService} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <input placeholder="Service Name" value={editingService?.name || newService.name} onChange={e => editingService ? setEditingService({...editingService, name: e.target.value}) : setNewService({...newService, name: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                    <input type="tel" inputMode="numeric" placeholder="Price ($)" value={editingService?.price || newService.price} onChange={e => editingService ? setEditingService({...editingService, price: e.target.value}) : setNewService({...newService, price: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                    <input type="tel" inputMode="numeric" placeholder="Price (LKR)" value={editingService?.price || newService.price} onChange={e => editingService ? setEditingService({...editingService, price: e.target.value}) : setNewService({...newService, price: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                     <input type="tel" inputMode="numeric" placeholder="Duration (min)" value={editingService?.duration || newService.duration} onChange={e => editingService ? setEditingService({...editingService, duration: e.target.value}) : setNewService({...newService, duration: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   </div>
                   <label style={{ fontSize: '0.8rem', color: '#64748b' }}>Price Effective From:</label>
                   <input type="date" value={editingService?.effective_from || newService.effective_from} onChange={e => editingService ? setEditingService({...editingService, effective_from: e.target.value}) : setNewService({...newService, effective_from: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                    <button type="submit" disabled={isLoading} style={{ flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : editingService ? 'Update Service' : 'Add Service'}</button>
-                    {editingService && <button type="button" onClick={() => setEditingService(null)} style={{ padding: '10px', background: '#94a3b8', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>}
+                    <button type="submit" disabled={isLoading} style={{ flex: 1, padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : editingService ? '💾 Update Service' : '➕ Add Service'}</button>
+                    {editingService && <button type="button" onClick={() => setEditingService(null)} style={{ padding: '10px', background: '#94a3b8', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>❌ Cancel</button>}
                   </div>
                 </form>
               </div>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>📋 Services ({services.length})</h2>
+                <h2> Services ({services.length})</h2>
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                   {services.map(s => (
                     <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
-                      <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{s.name}</strong> • ${s.price} / {s.duration}m<div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>From: {new Date(s.price_effective_from).toLocaleDateString()}</div></div>
+                      <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{s.name}</strong> • LKR {s.price} / {s.duration}m<div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>From: {new Date(s.price_effective_from).toLocaleDateString()}</div></div>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => setEditingService(s)} style={{ background: '#fff', color: '#d97706', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>✏️ Edit</button>
                         <button onClick={() => handleDeleteService(s.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>🗑️ Delete</button>
@@ -811,17 +727,17 @@ export default function App() {
             </div>
           )}
 
-          {/*  Suppliers & Expenses */}
+          {/* 🏭 Suppliers & Expenses */}
           {activeTab === 'suppliers_expenses' && (
             <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2>🏭 Add Supplier</h2>
+                <h2> Add Supplier</h2>
                 <form onSubmit={handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
                   <input placeholder="Supplier Name" value={newSupplier.name} onChange={e => setNewSupplier({...newSupplier, name: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-                  <input placeholder="Contact (Optional)" value={newSupplier.contact} onChange={e => setNewSupplier({...newSupplier, contact: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                  <button type="submit" style={{ padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Save Supplier</button>
+                  <input placeholder="Contact" value={newSupplier.contact} onChange={e => setNewSupplier({...newSupplier, contact: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                  <button type="submit" style={{ padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>💾 Save Supplier</button>
                 </form>
-                <h3>Existing Suppliers ({suppliers.length})</h3>
+                <h3>Suppliers ({suppliers.length})</h3>
                 <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
                   {suppliers.map(s => <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}><strong>{s.name}</strong><span style={{ color: '#64748b', fontSize: '0.8rem' }}>{s.contact}</span></div>)}
                 </div>
@@ -834,30 +750,28 @@ export default function App() {
                     <option value="">Select Recurring</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
                   <input placeholder="Or type cash supplier" value={newBill.supplier_id ? '' : newBill.supplier_name} onChange={e => setNewBill({...newBill, supplier_name: e.target.value, supplier_id: ''})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                  <input type="tel" inputMode="numeric" placeholder="Amount ($)" value={newBill.amount} onChange={e => setNewBill({...newBill, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
+                  <input type="tel" inputMode="numeric" placeholder="Amount (LKR)" value={newBill.amount} onChange={e => setNewBill({...newBill, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <input type="date" value={newBill.bill_date} onChange={e => setNewBill({...newBill, bill_date: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
                   <select value={newBill.category} onChange={e => setNewBill({...newBill, category: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                     {expenseTypes.map(t => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
                   </select>
                   <select value={newBill.payment_method} onChange={e => setNewBill({...newBill, payment_method: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                    <option value="cash">💵 Cash</option><option value="bank_transfer">🏦 Bank Transfer</option><option value="credit_card">💳 Credit Card</option><option value="debit_card">💳 Debit Card</option><option value="card">💳 Card</option>
+                    <option value="cash">💵 Cash</option><option value="bank_transfer"> Bank</option><option value="credit_card">💳 Credit</option><option value="debit_card">💳 Debit</option><option value="card">💳 Card</option>
                   </select>
-                  <input placeholder="Description (Optional)" value={newBill.description} onChange={e => setNewBill({...newBill, description: e.target.value})} style={{ gridColumn: '1 / -1', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                  <input placeholder="Description" value={newBill.description} onChange={e => setNewBill({...newBill, description: e.target.value})} style={{ gridColumn: '1 / -1', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   <button type="submit" disabled={isLoading} style={{ gridColumn: '1 / -1', padding: '10px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{isLoading ? 'Saving...' : '📥 Add Bill'}</button>
                 </form>
                 
-                {/* Custom Expense Types */}
                 <div style={{ marginTop: '1.5rem' }}>
                   <h3>🏷️ Manage Expense Types</h3>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                    <input value={newExpenseType} onChange={e => setNewExpenseType(e.target.value)} placeholder="New type name" style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-                    <button onClick={handleAddExpenseType} style={{ padding: '6px 12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add</button>
+                    <input value={newExpenseType} onChange={e => setNewExpenseType(e.target.value)} placeholder="New type" style={{ flex: 1, padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
+                    <button onClick={handleAddExpenseType} style={{ padding: '6px 12px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>➕ Add Type</button>
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {expenseTypes.map(t => (
                       <span key={t} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem' }}>
-                        {t}
-                        <button onClick={() => handleDeleteExpenseType(t)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '0 2px' }}>✕</button>
+                        {t} <button onClick={() => handleDeleteExpenseType(t)} style={{ background: 'none', border: 'none', color: '#dc2626', cursor: 'pointer', padding: '0 2px' }}>✕</button>
                       </span>
                     ))}
                   </div>
@@ -865,7 +779,7 @@ export default function App() {
 
                 <div style={{ marginTop: '1rem', maxHeight: '200px', overflowY: 'auto' }}>
                   <h3>Recent Bills</h3>
-                  {bills.map(b => <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.9rem' }}><div><strong>{b.supplier_name}</strong> • {b.category}<div style={{ fontSize: '0.75rem', color: '#64748b' }}>{new Date(b.bill_date).toLocaleDateString()}</div></div><span style={{ fontWeight: '600', color: '#dc2626' }}>-${b.amount}</span></div>)}
+                  {bills.map(b => <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f1f5f9', fontSize: '0.9rem' }}><div><strong>{b.supplier_name}</strong> • {b.category}<div style={{ fontSize: '0.75rem', color: '#64748b' }}>{new Date(b.bill_date).toLocaleDateString()}</div></div><span style={{ fontWeight: '600', color: '#dc2626' }}>-LKR {b.amount}</span></div>)}
                 </div>
               </div>
             </div>
@@ -882,28 +796,27 @@ export default function App() {
                   <input type="date" value={ledgerTo} onChange={e => setLedgerTo(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  <button onClick={() => printLedger('cash')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>️ Print Cash</button>
-                  <button onClick={() => printLedger('bank')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem' }}>🖨️ Print Bank</button>
+                  <button onClick={() => { printLedger('cash'); printLedger('bank'); }} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Both Reports</button>
                 </div>
               </div>
 
               <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
-                {/* Cash Panel */}
+                {/* Cash */}
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                   <h2>💵 Cash Book</h2>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', background: '#f8fafc', padding: '10px', borderRadius: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Balance Date (Fixed)</label>
+                      <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Date (Fixed)</label>
                       <div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center' }}>
                         <input type="date" value={cashOpenDate} onChange={e => setCashOpenDate(e.target.value)} disabled={!isEditingCashOB} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1, opacity: isEditingCashOB ? 1 : 0.7 }} />
-                        <button onClick={() => setIsEditingCashOB(!isEditingCashOB)} style={{ padding: '6px', background: isEditingCashOB ? '#dc2626' : '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>{isEditingCashOB ? '✕' : '✏️'}</button>
+                        <button onClick={() => setIsEditingCashOB(!isEditingCashOB)} style={{ padding: '6px', background: isEditingCashOB ? '#dc2626' : '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>{isEditingCashOB ? '✕ Cancel' : '✏️ Edit'}</button>
                       </div>
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Amount</label>
                       <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
                         <input type="number" step="0.01" value={openingCash || ''} onChange={e => setOpeningCash(parseFloat(e.target.value || '0'))} disabled={!isEditingCashOB} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1, opacity: isEditingCashOB ? 1 : 0.7 }} />
-                        <button onClick={() => { if(isEditingCashOB) { setIsEditingCashOB(false); localStorage.setItem('salon_opening_cash', openingCash); alert('💾 Cash opening balance saved!'); } }} style={{ padding: '6px 10px', background: isEditingCashOB ? '#10b981' : '#94a3b8', color: '#fff', border: 'none', borderRadius: '4px', cursor: isEditingCashOB ? 'pointer' : 'default', fontSize: '0.8rem' }} disabled={!isEditingCashOB}></button>
+                        <button onClick={() => { if(isEditingCashOB) { setIsEditingCashOB(false); localStorage.setItem('salon_opening_cash', openingCash); alert('💾 Cash opening balance saved!'); } }} style={{ padding: '6px 10px', background: isEditingCashOB ? '#10b981' : '#94a3b8', color: '#fff', border: 'none', borderRadius: '4px', cursor: isEditingCashOB ? 'pointer' : 'default', fontSize: '0.8rem' }} disabled={!isEditingCashOB}>💾 Save</button>
                       </div>
                     </div>
                   </div>
@@ -913,38 +826,36 @@ export default function App() {
                         <tr><th style={{ padding: '8px' }}>Date</th><th style={{ padding: '8px' }}>Description</th><th style={{ padding: '8px', textAlign: 'right' }}>Amount</th><th style={{ padding: '8px', textAlign: 'right' }}>Balance</th></tr>
                       </thead>
                       <tbody>
-                        {accountingData.cash.txns.length === 0 ? (
-                          <tr><td colSpan="4" style={{ padding: '1.5rem', textAlign: 'center', color: '#64748b' }}>No transactions.</td></tr>
-                        ) : accountingData.cash.txns.map(txn => (
+                        {accountingData.cash.txns.length === 0 ? (<tr><td colSpan="4" style={{ padding: '1.5rem', textAlign: 'center', color: '#64748b' }}>No transactions.</td></tr>) : accountingData.cash.txns.map(txn => (
                           <tr key={txn.date+txn.amount} style={{ borderBottom: '1px solid #f1f5f9', background: txn.type === 'opening' ? '#fef3c7' : 'transparent' }}>
                             <td style={{ padding: '8px' }}>{new Date(txn.date).toLocaleDateString()}</td>
                             <td style={{ padding: '8px' }}>{txn.desc}</td>
-                            <td style={{ padding: '8px', textAlign: 'right', color: txn.type === 'income' ? '#10b981' : txn.type === 'opening' ? '#d97706' : '#dc2626', fontWeight: '600' }}>{txn.type === 'income' ? '+' : txn.type === 'opening' ? '🏦' : '-'}${txn.amount.toFixed(2)}</td>
-                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>${txn.balance.toFixed(2)}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', color: txn.type === 'income' ? '#10b981' : txn.type === 'opening' ? '#d97706' : '#dc2626', fontWeight: '600' }}>{txn.type === 'income' ? '+' : txn.type === 'opening' ? '' : '-'}LKR {Math.abs(txn.amount).toFixed(2)}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>LKR {txn.balance.toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot><tr style={{ background: '#eff6ff' }}><td colSpan="3" style={{ padding: '12px', textAlign: 'right', fontWeight: '700' }}>Closing Balance:</td><td style={{ padding: '12px', textAlign: 'right', fontWeight: '800', color: '#1e40af' }}>${accountingData.cash.closing.toFixed(2)}</td></tr></tfoot>
+                      <tfoot><tr style={{ background: '#eff6ff' }}><td colSpan="3" style={{ padding: '12px', textAlign: 'right', fontWeight: '700' }}>Closing:</td><td style={{ padding: '12px', textAlign: 'right', fontWeight: '800', color: '#1e40af' }}>LKR {accountingData.cash.closing.toFixed(2)}</td></tr></tfoot>
                     </table>
                   </div>
                 </div>
 
-                {/* Bank Panel */}
+                {/* Bank */}
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                  <h2>🏦 Bank & Card Ledger</h2>
+                  <h2>🏦 Bank Ledger</h2>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', background: '#f8fafc', padding: '10px', borderRadius: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <div style={{ flex: 1 }}>
-                      <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Balance Date (Fixed)</label>
+                      <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Date (Fixed)</label>
                       <div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center' }}>
                         <input type="date" value={bankOpenDate} onChange={e => setBankOpenDate(e.target.value)} disabled={!isEditingBankOB} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1, opacity: isEditingBankOB ? 1 : 0.7 }} />
-                        <button onClick={() => setIsEditingBankOB(!isEditingBankOB)} style={{ padding: '6px', background: isEditingBankOB ? '#dc2626' : '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>{isEditingBankOB ? '✕' : '️'}</button>
+                        <button onClick={() => setIsEditingBankOB(!isEditingBankOB)} style={{ padding: '6px', background: isEditingBankOB ? '#dc2626' : '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>{isEditingBankOB ? '✕ Cancel' : '✏️ Edit'}</button>
                       </div>
                     </div>
                     <div style={{ flex: 1 }}>
                       <label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Amount</label>
                       <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
                         <input type="number" step="0.01" value={openingBank || ''} onChange={e => setOpeningBank(parseFloat(e.target.value || '0'))} disabled={!isEditingBankOB} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1, opacity: isEditingBankOB ? 1 : 0.7 }} />
-                        <button onClick={() => { if(isEditingBankOB) { setIsEditingBankOB(false); localStorage.setItem('salon_opening_bank', openingBank); alert('💾 Bank opening balance saved!'); } }} style={{ padding: '6px 10px', background: isEditingBankOB ? '#10b981' : '#94a3b8', color: '#fff', border: 'none', borderRadius: '4px', cursor: isEditingBankOB ? 'pointer' : 'default', fontSize: '0.8rem' }} disabled={!isEditingBankOB}></button>
+                        <button onClick={() => { if(isEditingBankOB) { setIsEditingBankOB(false); localStorage.setItem('salon_opening_bank', openingBank); alert('💾 Bank opening balance saved!'); } }} style={{ padding: '6px 10px', background: isEditingBankOB ? '#10b981' : '#94a3b8', color: '#fff', border: 'none', borderRadius: '4px', cursor: isEditingBankOB ? 'pointer' : 'default', fontSize: '0.8rem' }} disabled={!isEditingBankOB}>💾 Save</button>
                       </div>
                     </div>
                   </div>
@@ -954,18 +865,16 @@ export default function App() {
                         <tr><th style={{ padding: '8px' }}>Date</th><th style={{ padding: '8px' }}>Description</th><th style={{ padding: '8px', textAlign: 'right' }}>Amount</th><th style={{ padding: '8px', textAlign: 'right' }}>Balance</th></tr>
                       </thead>
                       <tbody>
-                        {accountingData.bank.txns.length === 0 ? (
-                          <tr><td colSpan="4" style={{ padding: '1.5rem', textAlign: 'center', color: '#64748b' }}>No transactions.</td></tr>
-                        ) : accountingData.bank.txns.map(txn => (
+                        {accountingData.bank.txns.length === 0 ? (<tr><td colSpan="4" style={{ padding: '1.5rem', textAlign: 'center', color: '#64748b' }}>No transactions.</td></tr>) : accountingData.bank.txns.map(txn => (
                           <tr key={txn.date+txn.amount} style={{ borderBottom: '1px solid #f1f5f9', background: txn.type === 'opening' ? '#fef3c7' : 'transparent' }}>
                             <td style={{ padding: '8px' }}>{new Date(txn.date).toLocaleDateString()}</td>
                             <td style={{ padding: '8px' }}>{txn.desc}</td>
-                            <td style={{ padding: '8px', textAlign: 'right', color: txn.type === 'income' ? '#10b981' : txn.type === 'opening' ? '#d97706' : '#dc2626', fontWeight: '600' }}>{txn.type === 'income' ? '+' : txn.type === 'opening' ? '🏦' : '-'}${txn.amount.toFixed(2)}</td>
-                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>${txn.balance.toFixed(2)}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', color: txn.type === 'income' ? '#10b981' : txn.type === 'opening' ? '#d97706' : '#dc2626', fontWeight: '600' }}>{txn.type === 'income' ? '+' : txn.type === 'opening' ? '🏦' : '-'}LKR {Math.abs(txn.amount).toFixed(2)}</td>
+                            <td style={{ padding: '8px', textAlign: 'right', fontWeight: '700', color: '#334155' }}>LKR {txn.balance.toFixed(2)}</td>
                           </tr>
                         ))}
                       </tbody>
-                      <tfoot><tr style={{ background: '#eff6ff' }}><td colSpan="3" style={{ padding: '12px', textAlign: 'right', fontWeight: '700' }}>Closing Balance:</td><td style={{ padding: '12px', textAlign: 'right', fontWeight: '800', color: '#1e40af' }}>${accountingData.bank.closing.toFixed(2)}</td></tr></tfoot>
+                      <tfoot><tr style={{ background: '#eff6ff' }}><td colSpan="3" style={{ padding: '12px', textAlign: 'right', fontWeight: '700' }}>Closing:</td><td style={{ padding: '12px', textAlign: 'right', fontWeight: '800', color: '#1e40af' }}>LKR {accountingData.bank.closing.toFixed(2)}</td></tr></tfoot>
                     </table>
                   </div>
                 </div>
@@ -978,15 +887,15 @@ export default function App() {
             <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
                 <h2>📄 Financial Statement</h2>
-                <button onClick={() => window.print()} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}>🖨️ Print</button>
+                <button onClick={() => window.print()} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Statement</button>
               </div>
               <div style={{ display: 'grid', gap: '0.8rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span> Revenue</span><strong style={{ color: '#10b981' }}>${(accountingData.cash.totalIn + accountingData.bank.totalIn).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📦 Materials</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>👷 Labour</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f0fdf4', borderRadius: '6px', fontWeight: 'bold' }}><span>💰 Gross Profit (Rev - Mat - Lab)</span><strong style={{ color: '#15803d' }}>${(accountingData.cash.totalIn + accountingData.bank.totalIn - bills.filter(b => b.category === 'materials' || b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📋 Other Expenses</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => !['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#eff6ff', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span>🎯 Net Profit (Gross - Other)</span><strong style={{ color: '#1e40af' }}>${(accountingData.cash.totalIn + accountingData.bank.totalIn - bills.reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📈 Revenue</span><strong style={{ color: '#10b981' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📦 Materials</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span> Labour</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f0fdf4', borderRadius: '6px', fontWeight: 'bold' }}><span>💰 Gross Profit</span><strong style={{ color: '#15803d' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn - bills.filter(b => b.category === 'materials' || b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📋 Other</span><strong style={{ color: '#dc2626' }}>-LKR {bills.filter(b => !['materials','labour'].includes(b.category)).reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: '#eff6ff', borderRadius: '6px', fontWeight: 'bold', fontSize: '1.1em' }}><span>🎯 Net Profit</span><strong style={{ color: '#1e40af' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn - bills.reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
               </div>
             </div>
           )}
@@ -996,7 +905,7 @@ export default function App() {
       {/* Footer */}
       <footer style={{ background: '#fff', borderTop: '2px solid #e2e8f0', padding: '1rem', textAlign: 'center', marginTop: '2rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {bizHubLogo && <img src={bizHubLogo} alt="BizHub Solutions" style={{ height: '30px' }} />}
+          {bizHubLogo && <img src={bizHubLogo} alt="BizHub" style={{ height: '30px' }} />}
           <span style={{ color: '#64748b', fontSize: '0.9rem' }}>Powered by <strong style={{ color: '#059669' }}>BizHub Solutions</strong></span>
         </div>
         <div style={{ marginTop: '8px', fontSize: '0.8rem', color: '#94a3b8' }}>Professional Business Management Solutions</div>
@@ -1015,11 +924,11 @@ export default function App() {
             <div style={{ background: 'rgba(255,255,255,0.2)', borderRadius: '12px', padding: '1.5rem', textAlign: 'center', marginBottom: '1.5rem' }}>
               <div style={{ fontSize: '3rem', fontWeight: '800' }}>{showLoyaltyCard.loyalty_points || 0}</div>
               <div style={{ fontSize: '0.9rem', opacity: 0.9 }}>Points Available</div>
-              <div style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: '4px' }}>Value: ${(showLoyaltyCard.loyalty_points || 0).toFixed(2)}</div>
+              <div style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: '4px' }}>Value: LKR {(showLoyaltyCard.loyalty_points || 0).toFixed(2)}</div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={() => setShowLoyaltyCard(null)} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>Close</button>
-              <button onClick={() => { redeemLoyalty(showLoyaltyCard.id, Math.min(showLoyaltyCard.loyalty_points || 0, 100)); setShowLoyaltyCard(null); }} style={{ flex: 1, padding: '10px', background: '#fff', color: '#7c3aed', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>Redeem</button>
+              <button onClick={() => setShowLoyaltyCard(null)} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>❌ Close</button>
+              <button onClick={() => { redeemLoyalty(showLoyaltyCard.id, Math.min(showLoyaltyCard.loyalty_points || 0, 100)); setShowLoyaltyCard(null); }} style={{ flex: 1, padding: '10px', background: '#fff', color: '#7c3aed', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>💰 Redeem Points</button>
             </div>
           </div>
         </div>
