@@ -551,29 +551,35 @@ export default function App() {
                 </div>
                 
                 {/* Summary Stats */}
-                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '1.5rem', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Revenue</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#10b981' }}>
-                      LKR {Object.values(dashboardData.revData).reduce((a,b)=>a+b,0).toLocaleString()}
+                {(() => {
+                  const totalRev = Object.values(dashboardData.revData).reduce((a,b)=>a+b,0);
+                  const totalExp = Object.values(dashboardData.expData).reduce((a,b)=>a+b,0);
+                  const net = totalRev - totalExp;
+                  const netColor = net >= 0 ? '#10b981' : '#ef4444';
+                  
+                  return (
+                    <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '1.5rem', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Revenue</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#10b981' }}>
+                          LKR {totalRev.toLocaleString()}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Expenses</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#ef4444' }}>
+                          LKR {totalExp.toLocaleString()}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Net</div>
+                        <div style={{ fontSize: '1.1rem', fontWeight: '700', color: netColor }}>
+                          LKR {net.toLocaleString()}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Expenses</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#ef4444' }}>
-                      LKR {Object.values(dashboardData.expData).reduce((a,b)=>a+b,0).toLocaleString()}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Net</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: {
-                      const net = Object.values(dashboardData.revData).reduce((a,b)=>a+b,0) - Object.values(dashboardData.expData).reduce((a,b)=>a+b,0);
-                      return net >= 0 ? '#10b981' : '#ef4444';
-                    }() }}>
-                      LKR {(Object.values(dashboardData.revData).reduce((a,b)=>a+b,0) - Object.values(dashboardData.expData).reduce((a,b)=>a+b,0)).toLocaleString()}
-                    </div>
-                  </div>
-                </div>
+                  );
+                })()}
               </div>
             </div>
           )}
