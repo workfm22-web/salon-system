@@ -489,7 +489,7 @@ export default function App() {
   // 🔐 Login
   if (!session) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'url("https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/login%20screen.jpg") center/cover no-repeat fixed' }}>
         <form onSubmit={handleAuth} style={{ background: '#fff', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', width: '100%', maxWidth: '340px' }}>
           <h2 style={{ textAlign: 'center', marginBottom: '1.5rem' }}>{salonName} {authMode === 'login' ? 'Login' : 'Create Account'}</h2>
           {authError && <div style={{ background: authError.includes('✅') ? '#dcfce7' : '#fef2f2', color: authError.includes('✅') ? '#166534' : '#dc2626', padding: '8px', borderRadius: '6px', marginBottom: '10px', fontSize: '0.85rem' }}>{authError}</div>}
@@ -504,7 +504,7 @@ export default function App() {
 
   // 📊 Dashboard
   return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', position: 'relative' }}>
+    <div style={{ minHeight: '100vh', background: '#717D9D', position: 'relative' }}>
       <style>{`
         @media (max-width: 640px) {
           .main-container { padding: 0.5rem !important; }
@@ -521,7 +521,7 @@ export default function App() {
 
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundImage: 'url("https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1920&q=80")', backgroundSize: 'cover', backgroundPosition: 'center', opacity: 0.05, zIndex: -1 }} />
       
-      <div style={{ background: '#1e3a8a', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', flexWrap: 'wrap', gap: '10px' }}>
+      <div style={{ background: '#13265C', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', flexWrap: 'wrap', gap: '10px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
           {salonLogo && <img src={salonLogo} alt="Logo" style={{ height: '40px', borderRadius: '8px' }} />}
           <div>
