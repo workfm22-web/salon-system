@@ -402,38 +402,89 @@ export default function App() {
     };
   }, [invoices, bills, ledgerFrom, ledgerTo, openingCash, openingBank, cashOpenDate, bankOpenDate]);
 
-  // 📊 Dashboard Data
+  // 📊 Dashboard Data - Bar Chart with Fixed Ranges
   const dashboardData = useMemo(() => {
     const now = new Date();
-    const y = now.getFullYear().toString();
-    const m = (now.getMonth()+1).toString().padStart(2,'0');
-    const d = now.getDate().toString().padStart(2,'0');
-    const todayStr = `${y}-${m}-${d}`;
-    const monthStr = `${y}-${m}`;
-
-    const filterByPeriod = (dateStr) => {
-      if (!dateStr) return false;
-      const s = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-      if (chartPeriod === 'day') return s === todayStr;
-      if (chartPeriod === 'month') return s.startsWith(monthStr);
-      if (chartPeriod === 'year') return s.startsWith(y);
-      return true;
+    const todayStr = now.toISOString().split('T')[0];
+    
+    // Generate date ranges based on period
+    const generateDateRange = () => {
+      const dates = [];
+      if (chartPeriod === 'day') {
+        // Last 14 days
+        for (let i = 13; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          dates.push(d.toISOString().split('T')[0]);
+        }
+      } else if (chartPeriod === 'month') {
+        // Last 12 months
+        for (let i = 11; i >= 0; i--) {
+          const d = new Date();
+          d.setMonth(d.getMonth() - i);
+          dates.push(d.toISOString().slice(0, 7)); // YYYY-MM
+        }
+      } else if (chartPeriod === 'year') {
+        // Last 5 years
+        for (let i = 4; i >= 0; i--) {
+          const d = new Date();
+          d.setFullYear(d.getFullYear() - i);
+          dates.push(d.getFullYear().toString());
+        }
+      }
+      return dates;
     };
 
-    const revData = {}; const expData = {};
-    invoices.filter(inv => inv.status === 'paid' && filterByPeriod(inv.issued_at)).forEach(inv => {
-      const k = chartPeriod === 'day' ? todayStr : chartPeriod === 'month' ? monthStr : y;
-      revData[k] = (revData[k] || 0) + Number(inv.total_amount || 0);
-    });
-    bills.filter(b => filterByPeriod(b.bill_date)).forEach(b => {
-      const k = chartPeriod === 'day' ? todayStr : chartPeriod === 'month' ? monthStr : y;
-      expData[k] = (expData[k] || 0) + Number(b.amount || 0);
+    const dateRange = generateDateRange();
+    const revData = {};
+    const expData = {};
+
+    // Initialize all dates with 0
+    dateRange.forEach(d => {
+      revData[d] = 0;
+      expData[d] = 0;
     });
 
-    return { revData, expData, period: chartPeriod };
+    // Filter and aggregate invoices
+    invoices.filter(inv => inv.status === 'paid').forEach(inv => {
+      const dateStr = inv.issued_at?.split('T')[0];
+      if (!dateStr) return;
+      
+      let key = null;
+      if (chartPeriod === 'day') {
+        key = dateStr;
+      } else if (chartPeriod === 'month') {
+        key = dateStr.slice(0, 7);
+      } else if (chartPeriod === 'year') {
+        key = dateStr.slice(0, 4);
+      }
+      
+      if (key && dateRange.includes(key)) {
+        revData[key] = (revData[key] || 0) + Number(inv.total_amount || 0);
+      }
+    });
+
+    // Filter and aggregate bills
+    bills.forEach(b => {
+      const dateStr = b.bill_date;
+      if (!dateStr) return;
+      
+      let key = null;
+      if (chartPeriod === 'day') {
+        key = dateStr;
+      } else if (chartPeriod === 'month') {
+        key = dateStr.slice(0, 7);
+      } else if (chartPeriod === 'year') {
+        key = dateStr.slice(0, 4);
+      }
+      
+      if (key && dateRange.includes(key)) {
+        expData[key] = (expData[key] || 0) + Number(b.amount || 0);
+      }
+    });
+
+    return { revData, expData, period: chartPeriod, dateRange };
   }, [invoices, bills, chartPeriod]);
-
-  const upcomingBookings = appointments.filter(a => a.status === 'booked');
 
   // 🔐 Login
   if (!session) {
@@ -526,17 +577,18 @@ export default function App() {
 
               {/* Revenue Chart */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h3>📈 Revenue Trend ({chartPeriod === 'day' ? 'Daily' : chartPeriod === 'month' ? 'Monthly' : 'Yearly'})</h3>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '150px', marginTop: '1rem' }}>
-                  {Object.entries(dashboardData.revData).map(([k, v], i) => {
+                <h3>📈 Revenue Trend ({chartPeriod === 'day' ? 'Last 14 Days' : chartPeriod === 'month' ? 'Last 12 Months' : 'Last 5 Years'})</h3>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px', height: '150px', marginTop: '1rem', overflowX: 'auto', paddingBottom: '8px' }}>
+                  {dashboardData.dateRange.map((k, i) => {
+                    const v = dashboardData.revData[k] || 0;
                     const max = Math.max(...Object.values(dashboardData.revData), 1);
-                    const h = Math.max((v / max) * 100, 5);
+                    const h = Math.max((v / max) * 100, v > 0 ? 5 : 0);
                     const label = chartPeriod === 'day' ? k.slice(5) : chartPeriod === 'month' ? k.slice(5) : k;
                     return (
-                      <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                        <div style={{ width: '100%', height: `${h}%`, background: 'linear-gradient(to top, #3b82f6, #60a5fa)', borderRadius: '4px 4px 0 0', minWidth: '30px' }}></div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>{label}</div>
-                        <div style={{ fontSize: '0.75rem', fontWeight: '600' }}>LKR {(v/1000).toFixed(1)}k</div>
+                      <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', minWidth: '40px' }}>
+                        <div style={{ width: '100%', height: `${h}%`, background: 'linear-gradient(to top, #3b82f6, #60a5fa)', borderRadius: '4px 4px 0 0', transition: 'height 0.3s' }}></div>
+                        <div style={{ fontSize: '0.65rem', color: '#64748b', transform: 'rotate(-45deg)', transformOrigin: 'top left', whiteSpace: 'nowrap' }}>{label}</div>
+                        {v > 0 && <div style={{ fontSize: '0.7rem', fontWeight: '600', color: '#3b82f6' }}>LKR {(v/1000).toFixed(1)}k</div>}
                       </div>
                     );
                   })}
