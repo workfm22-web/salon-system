@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from './supabaseClient';
 
 export default function App() {
@@ -23,29 +23,19 @@ export default function App() {
   const [invoices, setInvoices] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [bills, setBills] = useState([]);
-  const [cashBook, setCashBook] = useState([]);
-  const [bankTransactions, setBankTransactions] = useState([]);
 
-  // 📝 Simple Forms
+  // 📝 Forms
   const [newCustomer, setNewCustomer] = useState({ name: '', phone: '' });
   const [newAppointment, setNewAppointment] = useState({ customerId: '', serviceId: '', time: '' });
   const [newSupplier, setNewSupplier] = useState({ name: '', contact: '' });
   const [newBill, setNewBill] = useState({ supplier_id: '', supplier_name: '', amount: '', description: '', bill_date: new Date().toISOString().split('T')[0], category: 'other' });
-  const [newCashEntry, setNewCashEntry] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', type: 'expense', category: 'other' });
-  const [newBankTxn, setNewBankTxn] = useState({ date: new Date().toISOString().split('T')[0], description: '', amount: '', payment_type: 'bank_transfer', category: 'other', reference: '' });
-
-  // ⚙️ Services Form
   const [newService, setNewService] = useState({ name: '', price: '', duration: '', effective_from: new Date().toISOString().split('T')[0] });
   const [editingService, setEditingService] = useState(null);
 
-  // 🛒 POS Form
+  // 🛒 POS
   const [posForm, setPosForm] = useState({
-    customerType: 'list',
-    customerId: '',
-    walkinName: '',
-    items: [{ serviceId: '', qty: 1 }],
-    paymentMethod: 'cash',
-    amountTendered: ''
+    customerType: 'list', customerId: '', walkinName: '',
+    items: [{ serviceId: '', qty: 1 }], paymentMethod: 'cash', amountTendered: ''
   });
 
   // 🔐 Auth Handlers
@@ -65,7 +55,7 @@ export default function App() {
   };
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setCustomers([]); setServices([]); setAppointments([]); setInvoices([]); setSuppliers([]); setBills([]); setCashBook([]); setBankTransactions([]);
+    setCustomers([]); setServices([]); setAppointments([]); setInvoices([]); setSuppliers([]); setBills([]);
   };
 
   // 🔌 Init & Fetch
@@ -78,25 +68,21 @@ export default function App() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [cust, svc, apt, inv, sup, bil, cash, bank] = await Promise.all([
+      const [cust, svc, apt, inv, sup, bil] = await Promise.all([
         supabase.from('customers').select('*').order('created_at', { ascending: false }),
         supabase.from('services').select('*').order('name'),
         supabase.from('appointments').select('*').order('time', { ascending: true }),
         supabase.from('invoices').select('*').order('issued_at', { ascending: false }),
         supabase.from('suppliers').select('*').order('name'),
-        supabase.from('supplier_bills').select('*').order('bill_date', { ascending: false }),
-        supabase.from('cash_book').select('*').order('date', { ascending: false }),
-        supabase.from('bank_card_transactions').select('*').order('date', { ascending: false })
+        supabase.from('supplier_bills').select('*').order('bill_date', { ascending: false })
       ]);
-      [cust, svc, apt, inv, sup, bil, cash, bank].forEach(res => { if (res.error) throw res.error; });
+      [cust, svc, apt, inv, sup, bil].forEach(res => { if (res.error) throw res.error; });
       setCustomers(cust.data || []);
       setServices(svc.data || []);
       setAppointments(apt.data || []);
       setInvoices((inv.data || []).map(i => ({ ...i, items: typeof i.items === 'string' ? JSON.parse(i.items) : (i.items || []) })));
       setSuppliers(sup.data || []);
       setBills(bil.data || []);
-      setCashBook(cash.data || []);
-      setBankTransactions(bank.data || []);
     } catch (err) { setError('Failed to load data: ' + err.message); }
     finally { setIsLoading(false); }
   };
@@ -173,22 +159,6 @@ export default function App() {
     catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
   };
 
-  // 💵 Cash Book
-  const handleAddCashEntry = async (e) => {
-    e.preventDefault(); if (!newCashEntry.description || !newCashEntry.amount) return;
-    setIsLoading(true);
-    try { const { error } = await supabase.from('cash_book').insert({ ...newCashEntry, amount: Number(newCashEntry.amount) }); if (error) throw error; await fetchData(); setNewCashEntry({ date: new Date().toISOString().split('T')[0], description: '', amount: '', type: 'expense', category: 'other' }); }
-    catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
-  };
-
-  // 🏦 Bank/Card Transactions
-  const handleAddBankTxn = async (e) => {
-    e.preventDefault(); if (!newBankTxn.description || !newBankTxn.amount) return;
-    setIsLoading(true);
-    try { const { error } = await supabase.from('bank_card_transactions').insert({ ...newBankTxn, amount: Number(newBankTxn.amount) }); if (error) throw error; await fetchData(); setNewBankTxn({ date: new Date().toISOString().split('T')[0], description: '', amount: '', payment_type: 'bank_transfer', category: 'other', reference: '' }); }
-    catch (err) { setError('Failed: ' + err.message); } finally { setIsLoading(false); }
-  };
-
   // 🛒 POS Logic
   const posTotal = posForm.items.reduce((sum, item) => {
     const svc = services.find(s => s.id === Number(item.serviceId));
@@ -243,12 +213,15 @@ export default function App() {
     const now = new Date();
     const y = now.getFullYear().toString();
     const m = (now.getMonth() + 1).toString().padStart(2, '0');
-    
-    // Calculate totals
+    const d = now.getDate().toString().padStart(2, '0');
+
     const revenue = invoices.filter(inv => {
       if (inv.status !== 'paid' || !inv.issued_at) return false;
-      const [invY, invM] = inv.issued_at.split('-');
-      return reportPeriod === 'year' ? invY === y : (reportPeriod === 'month' ? invY === y && invM === m : true);
+      const [invY, invM, invD] = inv.issued_at.split('-');
+      if (reportPeriod === 'year' && invY === y) return true;
+      if (reportPeriod === 'month' && invY === y && invM === m) return true;
+      if (reportPeriod === 'day' && invY === y && invM === m && invD === d) return true;
+      return false;
     }).reduce((sum, inv) => sum + Number(inv.total_amount || 0), 0);
 
     const materialCost = bills.filter(b => b.category === 'materials').reduce((sum, b) => sum + Number(b.amount || 0), 0);
@@ -262,20 +235,16 @@ export default function App() {
       <style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:20px}h1{text-align:center;color:#1e3a8a;border-bottom:3px solid #1e3a8a;padding-bottom:10px}h2{color:#334155;margin-top:30px;border-bottom:1px solid #cbd5e1;padding-bottom:5px}.row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9}.total{font-weight:bold;font-size:1.1em;background:#f8fafc;padding:10px;margin-top:10px}.subtotal{background:#f1f5f9;padding:6px}.net-profit{background:#dcfce7;font-size:1.3em;font-weight:bold;padding:12px}@media print{body{margin:0}}</style></head><body>
       <h1>✂️ Salon Manager<br/>Financial Statement</h1>
       <p style="text-align:center;color:#64748b">${reportPeriod === 'year' ? 'Year' : reportPeriod === 'month' ? 'Month' : 'Today'}: ${now.toLocaleDateString()}</p>
-      
       <h2>Revenue</h2>
       <div class="row"><span>Total Invoices (Paid)</span><span>$${revenue.toFixed(2)}</span></div>
       <div class="total"><span>Total Revenue</span><span>$${revenue.toFixed(2)}</span></div>
-
       <h2>Cost of Sales</h2>
       <div class="row"><span>Materials</span><span>-$${materialCost.toFixed(2)}</span></div>
       <div class="row"><span>Labour</span><span>-$${labourCost.toFixed(2)}</span></div>
       <div class="subtotal"><span>Gross Profit</span><span>$${grossProfit.toFixed(2)}</span></div>
-
       <h2>Operating Expenses</h2>
       <div class="row"><span>Other Expenses</span><span>-$${otherExpenses.toFixed(2)}</span></div>
       <div class="net-profit"><span>Net Profit</span><span>$${netProfit.toFixed(2)}</span></div>
-
       <p style="text-align:center;margin-top:40px;font-size:0.85rem;color:#94a3b8">Generated: ${new Date().toLocaleString()}</p>
       <script>window.print();window.close()</script></body></html>`);
   };
@@ -308,6 +277,56 @@ export default function App() {
     return { revenue, expenses, profit: revenue - expenses };
   };
 
+  // 💵 Auto-Generate Cash Book & Bank Ledger
+  const accountingData = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear().toString();
+    const m = (now.getMonth() + 1).toString().padStart(2, '0');
+    const d = now.getDate().toString().padStart(2, '0');
+
+    const inPeriod = (dateStr) => {
+      if (!dateStr) return false;
+      const [ty, tm, td] = dateStr.split('T')[0].split('-');
+      if (reportPeriod === 'year') return ty === y;
+      if (reportPeriod === 'month') return ty === y && tm === m;
+      if (reportPeriod === 'day') return ty === y && tm === m && td === d;
+      return true;
+    };
+
+    const cashBookList = [];
+    const bankList = [];
+    let cashIn = 0, cashOut = 0, bankIn = 0, bankOut = 0;
+
+    // Invoices
+    invoices.filter(inv => inv.status === 'paid' && inPeriod(inv.issued_at)).forEach(inv => {
+      const amt = Number(inv.total_amount || 0);
+      const base = { id: `inv-${inv.id}`, date: inv.issued_at.split('T')[0], description: `Invoice #${inv.id} • ${inv.customer_name}`, amount: amt, type: 'income', ref: inv.id };
+      if (inv.payment_method === 'cash') {
+        cashBookList.push(base);
+        cashIn += amt;
+      } else {
+        bankList.push({ ...base, paymentType: inv.payment_method });
+        bankIn += amt;
+      }
+    });
+
+    // Bills (treated as expenses)
+    bills.filter(b => inPeriod(b.bill_date)).forEach(b => {
+      const amt = Number(b.amount || 0);
+      const base = { id: `bill-${b.id}`, date: b.bill_date, description: `Bill • ${b.supplier_name} ${b.description ? `(${b.description})` : ''}`, amount: amt, type: 'expense', category: b.category || 'other', ref: b.id };
+      cashBookList.push(base); // Bills default to cash tracking
+      cashOut += amt;
+    });
+
+    // Sort newest first
+    cashBookList.sort((a, b) => new Date(b.date) - new Date(a.date));
+    bankList.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return { cashBookList, bankList, cashIn, cashOut, bankIn, bankOut };
+  }, [invoices, bills, reportPeriod]);
+
+  const pnl = getPnL();
+
   // 🔐 Login Screen
   if (!session) {
     return (
@@ -325,10 +344,8 @@ export default function App() {
   }
 
   // 📊 Dashboard
-  const pnl = getPnL();
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)' }}>
-      {/* 🆕 Dark Blue Header */}
       <div style={{ background: '#1e3a8a', padding: '1rem 1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
         <span style={{ fontSize: '2.2rem' }}>✂️</span>
         <h1 style={{ margin: 0, fontSize: '1.5rem', color: '#ffffff', fontWeight: '700' }}>Salon Manager</h1>
@@ -488,79 +505,42 @@ export default function App() {
             </div>
           </div>}
 
-          {/* 💵 Cash Book */}
-          {activeTab === 'cashbook' && <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-              <h2>💵 Add Cash Entry</h2>
-              <form onSubmit={handleAddCashEntry} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <input type="date" value={newCashEntry.date} onChange={e => setNewCashEntry({...newCashEntry, date: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-                <input placeholder="Description" value={newCashEntry.description} onChange={e => setNewCashEntry({...newCashEntry, description: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                  <input type="tel" inputMode="numeric" placeholder="Amount" value={newCashEntry.amount} onChange={e => setNewCashEntry({...newCashEntry, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-                  <select value={newCashEntry.type} onChange={e => setNewCashEntry({...newCashEntry, type: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                    <option value="expense">Expense</option>
-                    <option value="income">Income</option>
-                  </select>
-                </div>
-                <select value={newCashEntry.category} onChange={e => setNewCashEntry({...newCashEntry, category: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                  <option value="other">Other</option>
-                  <option value="materials">Materials</option>
-                  <option value="labour">Labour</option>
-                  <option value="utilities">Utilities</option>
-                  <option value="rent">Rent</option>
-                </select>
-                <button type="submit" style={{ padding: '10px', background: newCashEntry.type === 'income' ? '#10b981' : '#ef4444', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>{newCashEntry.type === 'income' ? '💵 Add Income' : '💸 Add Expense'}</button>
-              </form>
+          {/* 💵 Cash Book (AUTO-POPULATED) */}
+          {activeTab === 'cashbook' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
+            <h2>💵 Cash Book</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ background: '#f0fdf4', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}><div style={{ fontSize: '0.8rem', color: '#166534' }}>Cash In</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#15803d' }}>${accountingData.cashIn.toFixed(2)}</div></div>
+              <div style={{ background: '#fef2f2', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}><div style={{ fontSize: '0.8rem', color: '#991b1b' }}>Cash Out</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#b91c1c' }}>${accountingData.cashOut.toFixed(2)}</div></div>
+              <div style={{ background: '#eff6ff', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}><div style={{ fontSize: '0.8rem', color: '#1e40af' }}>Net Cash</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#2563eb' }}>${(accountingData.cashIn - accountingData.cashOut).toFixed(2)}</div></div>
             </div>
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-              <h2>📒 Cash Book ({cashBook.length})</h2>
-              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {cashBook.map(entry => (
-                  <div key={entry.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-                    <div><strong>{entry.description}</strong><div style={{ fontSize: '0.8rem', color: '#64748b' }}>{entry.category} • {new Date(entry.date).toLocaleDateString()}</div></div>
-                    <span style={{ fontWeight: '600', color: entry.type === 'income' ? '#10b981' : '#dc2626' }}>{entry.type === 'income' ? '+' : '-'}${entry.amount}</span>
+            <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+              {accountingData.cashBookList.length === 0 ? <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No cash transactions for this period.</div> :
+                accountingData.cashBookList.map(txn => (
+                  <div key={txn.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <div><strong>{txn.description}</strong><div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(txn.date).toLocaleDateString()} • Ref: #{txn.ref} {txn.category ? `• ${txn.category}` : ''}</div></div>
+                    <span style={{ fontWeight: '600', color: txn.type === 'income' ? '#10b981' : '#dc2626' }}>{txn.type === 'income' ? '+' : '-'}${txn.amount.toFixed(2)}</span>
                   </div>
-                ))}
-              </div>
+                ))
+              }
             </div>
           </div>}
 
-          {/* 🏦 Bank/Card Transactions */}
-          {activeTab === 'bank' && <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-              <h2>🏦 Add Transaction</h2>
-              <form onSubmit={handleAddBankTxn} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <input type="date" value={newBankTxn.date} onChange={e => setNewBankTxn({...newBankTxn, date: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-                <input placeholder="Description" value={newBankTxn.description} onChange={e => setNewBankTxn({...newBankTxn, description: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-                <input placeholder="Reference (Optional)" value={newBankTxn.reference} onChange={e => setNewBankTxn({...newBankTxn, reference: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                  <input type="tel" inputMode="numeric" placeholder="Amount" value={newBankTxn.amount} onChange={e => setNewBankTxn({...newBankTxn, amount: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} required />
-                  <select value={newBankTxn.payment_type} onChange={e => setNewBankTxn({...newBankTxn, payment_type: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                    <option value="bank_transfer">🏦 Bank Transfer</option>
-                    <option value="credit_card">💳 Credit Card</option>
-                    <option value="debit_card">💳 Debit Card</option>
-                  </select>
-                </div>
-                <select value={newBankTxn.category} onChange={e => setNewBankTxn({...newBankTxn, category: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                  <option value="other">Other</option>
-                  <option value="materials">Materials</option>
-                  <option value="labour">Labour</option>
-                  <option value="utilities">Utilities</option>
-                  <option value="rent">Rent</option>
-                </select>
-                <button type="submit" style={{ padding: '10px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>📥 Add Transaction</button>
-              </form>
+          {/* 🏦 Bank Ledger (AUTO-POPULATED) */}
+          {activeTab === 'bank' && <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
+            <h2>🏦 Bank & Card Ledger</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+              <div style={{ background: '#eff6ff', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}><div style={{ fontSize: '0.8rem', color: '#1e40af' }}>Bank/Card In</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#2563eb' }}>${accountingData.bankIn.toFixed(2)}</div></div>
+              <div style={{ background: '#fef2f2', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}><div style={{ fontSize: '0.8rem', color: '#991b1b' }}>Bank Out</div><div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#b91c1c' }}>$0.00</div></div>
             </div>
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-              <h2>📒 Bank/Card Ledger ({bankTransactions.length})</h2>
-              <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                {bankTransactions.map(txn => (
-                  <div key={txn.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
-                    <div><strong>{txn.description}</strong><div style={{ fontSize: '0.8rem', color: '#64748b' }}>{txn.payment_type.replace('_', ' ').toUpperCase()} • {txn.reference || 'No ref'} • {new Date(txn.date).toLocaleDateString()}</div></div>
-                    <span style={{ fontWeight: '600', color: '#dc2626' }}>-${txn.amount}</span>
+            <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+              {accountingData.bankList.length === 0 ? <div style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>No electronic transactions for this period.</div> :
+                accountingData.bankList.map(txn => (
+                  <div key={txn.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f1f5f9' }}>
+                    <div><strong>{txn.description}</strong><div style={{ fontSize: '0.8rem', color: '#64748b' }}>{new Date(txn.date).toLocaleDateString()} • {txn.paymentType.toUpperCase()} • Ref: #{txn.ref}</div></div>
+                    <span style={{ fontWeight: '600', color: '#10b981' }}>+${txn.amount.toFixed(2)}</span>
                   </div>
-                ))}
-              </div>
+                ))
+              }
             </div>
           </div>}
 
@@ -570,15 +550,12 @@ export default function App() {
               <h2>📄 Financial Statement</h2>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <select value={reportPeriod} onChange={e => setReportPeriod(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                  <option value="day">Today</option>
-                  <option value="month">This Month</option>
-                  <option value="year">This Year</option>
+                  <option value="day">Today</option><option value="month">This Month</option><option value="year">This Year</option>
                 </select>
                 <button onClick={printFinancialStatement} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '600' }}>🖨️ Print Statement</button>
               </div>
             </div>
             <div style={{ background: '#f8fafc', padding: '1.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <h3 style={{ marginTop: 0, color: '#1e3a8a' }}>Revenue & Expenses Breakdown</h3>
               <div style={{ display: 'grid', gap: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#fff', borderRadius: '6px' }}><span>📈 Total Revenue (Invoices)</span><strong style={{ color: '#10b981' }}>${pnl.revenue.toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#fff', borderRadius: '6px' }}><span>📦 Materials Cost</span><strong style={{ color: '#dc2626' }}>-${bills.filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
