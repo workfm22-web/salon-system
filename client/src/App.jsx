@@ -8,7 +8,7 @@ const SALON_CONFIG = {
   telephone: '+94 112 369 777',
   salonLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/Enoka%20logo.jpg',
   bizHubLogoUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/BizHub%20Solutions_Company%20Logo.png',
-  loginBgUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/login%20screen.jpg', // Replace with your login background URL
+  loginBgUrl: 'https://yhkgbcppoealusdhhakp.supabase.co/storage/v1/object/public/Saloon%20App/login%20screen.jpg',
   loyaltyRate: 10,
   openTime: '09:00',
   closeTime: '18:00',
@@ -37,7 +37,7 @@ export default function App() {
   const [chartPeriod, setChartPeriod] = useState('month');
   const [bookingsFilter, setBookingsFilter] = useState('');
 
-  //  Data
+  // 📦 Data
   const [customers, setCustomers] = useState([]);
   const [services, setServices] = useState([]);
   const [appointments, setAppointments] = useState([]);
@@ -110,7 +110,7 @@ export default function App() {
     setCustomers([]); setServices([]); setAppointments([]); setInvoices([]); setSuppliers([]); setBills([]); setBlockouts([]);
   };
 
-  //  Init
+  // ⏰ Init
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -190,7 +190,7 @@ export default function App() {
     try { const { error } = await supabase.from('customers').delete().eq('id', id); if (error) throw error; await fetchData(); } catch (err) { setError(err.message); } finally { setIsLoading(false); }
   };
 
-  //  Bookings
+  // 📅 Bookings
   const isTimeBlocked = (bookingDateTime) => {
     const bDate = bookingDateTime.split('T')[0];
     const bTime = bookingDateTime.split('T')[1].slice(0, 5);
@@ -264,7 +264,7 @@ export default function App() {
   const handleAddBlockout = () => { if (!newBlockout.date) return; const u = [...blockouts, newBlockout]; setBlockouts(u); localStorage.setItem('salon_blockouts', JSON.stringify(u)); setNewBlockout({ date: '', startTime: '00:00', endTime: '23:59', reason: '' }); };
   const handleRemoveBlockout = (d) => { const u = blockouts.filter(b => b.date !== d); setBlockouts(u); localStorage.setItem('salon_blockouts', JSON.stringify(u)); };
 
-  //  POS Logic
+  // 🛒 POS Logic
   const posSubtotal = posForm.items.reduce((sum, item) => {
     const svc = (services || []).find(s => s.id === Number(item.serviceId));
     const qty = Number(item.qty) || 0;
@@ -342,7 +342,7 @@ export default function App() {
     return { cash: buildLedger(['cash'], openingCash, cashOpenDate), bank: buildLedger(['card', 'transfer', 'bank_transfer', 'credit_card', 'debit_card'], openingBank, bankOpenDate) };
   }, [invoices, bills, ledgerFrom, ledgerTo, openingCash, openingBank, cashOpenDate, bankOpenDate]);
 
-  //  Dashboard Data (14d / 12m / 5y)
+  // 📊 Dashboard Data (14d / 12m / 5y)
   const dashboardData = useMemo(() => {
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
@@ -386,7 +386,7 @@ export default function App() {
               <label style={{ fontSize: '0.85rem', color: '#64748b', display: 'block', marginBottom: '4px' }}>Role</label>
               <select value={signupRole} onChange={e => setSignupRole(e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
                 <option value="staff">👩💼 Staff (Bookings, Invoices, Expenses)</option>
-                <option value="manager"> Manager (Full Access)</option>
+                <option value="manager">👔 Manager (Full Access)</option>
                 <option value="admin">👑 Admin (Developer / Super User)</option>
               </select>
             </div>
@@ -398,7 +398,7 @@ export default function App() {
     );
   }
 
-  //  Main App
+  // 🎨 Main App
   return (
     <div style={{ minHeight: '100vh', background: '#fab5ac', position: 'relative' }}>
       <style>{`@media(max-width:640px){.main-container{padding:0.5rem!important}.nav-tabs{gap:4px!important}.nav-tabs button{font-size:0.75rem!important;padding:6px 8px!important}.card-grid{grid-template-columns:1fr!important}.form-row{grid-template-columns:1fr!important}.table-wrap{font-size:0.85rem!important}th,td{padding:6px 4px!important}.dashboard-grid{grid-template-columns:1fr!important}}`}</style>
@@ -413,12 +413,12 @@ export default function App() {
         </div>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ color: '#fff', fontSize: '0.85rem', textAlign: 'right' }}><div>{currentTime.toLocaleDateString()}</div><div style={{ fontSize: '0.75rem', opacity: 0.8 }}>{currentTime.toLocaleTimeString()}</div></div>
-          <button onClick={handleLogout} style={{ padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}> Logout</button>
+          <button onClick={handleLogout} style={{ padding: '6px 12px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>🚪 Logout</button>
         </div>
       </div>
       
       <div className="main-container" style={{ padding: '1rem', maxWidth: '1200px', margin: '0 auto', fontFamily: 'system-ui' }}>
-        {error && <div style={{ background: '#fef2f2', color: '#991b1b', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>️ {error}</div>}
+        {error && <div style={{ background: '#fef2f2', color: '#991b1b', padding: '10px', borderRadius: '8px', marginBottom: '15px' }}>⚠️ {error}</div>}
         {isLoading && <div style={{ textAlign: 'center', padding: '10px', color: '#64748b' }}>⏳ Syncing...</div>}
         
         <nav className="nav-tabs" style={{ display: 'flex', gap: '6px', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '10px', flexWrap: 'wrap', overflowX: 'auto' }}>
@@ -440,7 +440,7 @@ export default function App() {
               <div className="dashboard-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
                 <div style={{ background: '#f0fdf4', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}><div style={{ fontSize: '2rem' }}>📅</div><div style={{ fontSize: '2rem', fontWeight: '700', color: '#15803d' }}>{(appointments || []).filter(a => a.status === 'booked').length}</div><div style={{ fontSize: '0.9rem', color: '#166534' }}>Active Bookings</div></div>
                 <div style={{ background: '#eff6ff', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}><div style={{ fontSize: '2rem' }}>💵</div><div style={{ fontSize: '2rem', fontWeight: '700', color: '#2563eb' }}>LKR {Object.values(dashboardData.revData).reduce((a,b)=>a+b,0).toFixed(0)}</div><div style={{ fontSize: '0.9rem', color: '#1e40af' }}>{chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? 'This Month' : 'This Year'} Revenue</div></div>
-                <div style={{ background: '#fef2f2', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}><div style={{ fontSize: '2rem' }}></div><div style={{ fontSize: '2rem', fontWeight: '700', color: '#dc2626' }}>LKR {Object.values(dashboardData.expData).reduce((a,b)=>a+b,0).toFixed(0)}</div><div style={{ fontSize: '0.9rem', color: '#991b1b' }}>{chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? 'This Month' : 'This Year'} Expenses</div></div>
+                <div style={{ background: '#fef2f2', padding: '1.5rem', borderRadius: '12px', textAlign: 'center' }}><div style={{ fontSize: '2rem' }}>📉</div><div style={{ fontSize: '2rem', fontWeight: '700', color: '#dc2626' }}>LKR {Object.values(dashboardData.expData).reduce((a,b)=>a+b,0).toFixed(0)}</div><div style={{ fontSize: '0.9rem', color: '#991b1b' }}>{chartPeriod === 'day' ? 'Today' : chartPeriod === 'month' ? 'This Month' : 'This Year'} Expenses</div></div>
               </div>
 
               <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
@@ -449,30 +449,129 @@ export default function App() {
                 ))}
               </div>
 
+              {/* Revenue & Expenses Chart */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <h3>📈 Revenue Trend ({chartPeriod === 'day' ? 'Last 14 Days' : chartPeriod === 'month' ? 'Last 12 Months' : 'Last 5 Years'})</h3>
-                  <div style={{ fontSize: '0.85rem', color: '#10b981', fontWeight: '600' }}>Total: LKR {Object.values(dashboardData.revData).reduce((a,b)=>a+b,0).toLocaleString()}</div>
-                </div>
-                <div style={{ position: 'relative', height: '200px', marginTop: '1rem' }}>
-                  <div style={{ position: 'absolute', left: '0', top: '0', bottom: '30px', width: '50px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: '0.75rem', color: '#64748b' }}>
-                    {(() => { const max = Math.max(...Object.values(dashboardData.revData), 1000); return [1, 0.75, 0.5, 0.25, 0].map(pct => (<div key={pct} style={{ textAlign: 'right', paddingRight: '8px' }}>LKR {((max * pct) / 1000).toFixed(0)}k</div>)); })()}
+                  <h3>📊 Financial Overview ({chartPeriod === 'day' ? 'Last 14 Days' : chartPeriod === 'month' ? 'Last 12 Months' : 'Last 5 Years'})</h3>
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '0.85rem' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#10b981' }}></span> Revenue</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: '12px', height: '12px', borderRadius: '3px', background: '#ef4444' }}></span> Expenses</span>
                   </div>
-                  <div style={{ marginLeft: '55px', marginRight: '10px', height: '100%', display: 'flex', alignItems: 'flex-end', gap: '4px', paddingBottom: '30px' }}>
-                    {dashboardData.dateRange.map(k => {
-                      const v = dashboardData.revData[k] || 0;
-                      const max = Math.max(...Object.values(dashboardData.revData), 1);
-                      const h = (v / max) * 100;
+                </div>
+                
+                <div style={{ position: 'relative', height: '200px', marginTop: '1rem' }}>
+                  {/* Y-Axis Labels */}
+                  <div style={{ position: 'absolute', left: '0', top: '0', bottom: '30px', width: '55px', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
+                    {(() => {
+                      const maxRev = Math.max(...Object.values(dashboardData.revData), 1);
+                      const maxExp = Math.max(...Object.values(dashboardData.expData), 1);
+                      const max = Math.max(maxRev, maxExp, 1000);
+                      return [1, 0.75, 0.5, 0.25, 0].map(pct => (
+                        <div key={pct} style={{ textAlign: 'right', paddingRight: '4px' }}>
+                          LKR {((max * pct) / 1000).toFixed(0)}k
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                  
+                  {/* Bars Container */}
+                  <div style={{ marginLeft: '60px', marginRight: '10px', height: '100%', display: 'flex', alignItems: 'flex-end', gap: '2px', paddingBottom: '30px' }}>
+                    {dashboardData.dateRange.map((k, i) => {
+                      const rev = dashboardData.revData[k] || 0;
+                      const exp = dashboardData.expData[k] || 0;
+                      const maxRev = Math.max(...Object.values(dashboardData.revData), 1);
+                      const maxExp = Math.max(...Object.values(dashboardData.expData), 1);
+                      const max = Math.max(maxRev, maxExp, 1);
+                      
+                      const revHeight = (rev / max) * 100;
+                      const expHeight = (exp / max) * 100;
                       const label = chartPeriod === 'day' ? k.slice(5) : chartPeriod === 'month' ? k.slice(5) : k;
-                      const getColor = (val) => val === 0 ? '#cbd5e1' : val < max*0.33 ? '#60a5fa' : val < max*0.66 ? '#3b82f6' : '#2563eb';
+                      
                       return (
-                        <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', position: 'relative' }}>
-                          <div style={{ width: '100%', height: `${h}%`, background: `linear-gradient(to top, ${getColor(v)}, ${getColor(v).replace('2563eb','60a5fa').replace('3b82f6','93c5fd').replace('60a5fa','bfdbfe')})`, borderRadius: '4px 4px 0 0', transition: 'all 0.3s', boxShadow: v > 0 ? '0 -2px 8px rgba(59,130,246,0.3)' : 'none', cursor: 'pointer' }} title={`LKR ${v.toLocaleString()}`} />
-                          <div style={{ position: 'absolute', bottom: '-25px', fontSize: '0.7rem', color: '#64748b', transform: 'rotate(-45deg)', transformOrigin: 'top center', whiteSpace: 'nowrap' }}>{label}</div>
-                          {v > 0 && h > 10 && <div style={{ position: 'absolute', top: '-20px', fontSize: '0.65rem', fontWeight: '600', color: '#2563eb', whiteSpace: 'nowrap' }}>{(v/1000).toFixed(1)}k</div>}
+                        <div key={k} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', position: 'relative', minWidth: '40px' }}>
+                          {/* Bars Group */}
+                          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: '100%' }}>
+                            {/* Revenue Bar */}
+                            <div 
+                              style={{ 
+                                width: '45%', 
+                                height: `${revHeight}%`, 
+                                background: 'linear-gradient(to top, #10b981, #34d399)',
+                                borderRadius: '3px 3px 0 0',
+                                transition: 'all 0.3s ease',
+                                boxShadow: rev > 0 ? '0 -2px 6px rgba(16, 185, 129, 0.3)' : 'none',
+                                cursor: 'pointer'
+                              }}
+                              title={`Revenue: LKR ${rev.toLocaleString()}`}
+                            />
+                            {/* Expenses Bar */}
+                            <div 
+                              style={{ 
+                                width: '45%', 
+                                height: `${expHeight}%`, 
+                                background: 'linear-gradient(to top, #ef4444, #f87171)',
+                                borderRadius: '3px 3px 0 0',
+                                transition: 'all 0.3s ease',
+                                boxShadow: exp > 0 ? '0 -2px 6px rgba(239, 68, 68, 0.3)' : 'none',
+                                cursor: 'pointer'
+                              }}
+                              title={`Expenses: LKR ${exp.toLocaleString()}`}
+                            />
+                          </div>
+                          
+                          {/* Label */}
+                          <div style={{ 
+                            position: 'absolute', 
+                            bottom: '-25px', 
+                            fontSize: '0.65rem', 
+                            color: '#64748b',
+                            transform: 'rotate(-45deg)',
+                            transformOrigin: 'top center',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'center'
+                          }}>
+                            {label}
+                          </div>
+                          
+                          {/* Values on top */}
+                          {rev > 0 && revHeight > 15 && (
+                            <div style={{ position: 'absolute', top: '-18px', left: '2px', fontSize: '0.6rem', fontWeight: '600', color: '#10b981', whiteSpace: 'nowrap' }}>
+                              {(rev/1000).toFixed(1)}k
+                            </div>
+                          )}
+                          {exp > 0 && expHeight > 15 && (
+                            <div style={{ position: 'absolute', top: '-18px', right: '2px', fontSize: '0.6rem', fontWeight: '600', color: '#ef4444', whiteSpace: 'nowrap' }}>
+                              {(exp/1000).toFixed(1)}k
+                            </div>
+                          )}
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+                
+                {/* Summary Stats */}
+                <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '1.5rem', padding: '12px', background: '#f8fafc', borderRadius: '8px' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Revenue</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#10b981' }}>
+                      LKR {Object.values(dashboardData.revData).reduce((a,b)=>a+b,0).toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Total Expenses</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#ef4444' }}>
+                      LKR {Object.values(dashboardData.expData).reduce((a,b)=>a+b,0).toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Net</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: '700', color: {
+                      const net = Object.values(dashboardData.revData).reduce((a,b)=>a+b,0) - Object.values(dashboardData.expData).reduce((a,b)=>a+b,0);
+                      return net >= 0 ? '#10b981' : '#ef4444';
+                    }() }}>
+                      LKR {(Object.values(dashboardData.revData).reduce((a,b)=>a+b,0) - Object.values(dashboardData.expData).reduce((a,b)=>a+b,0)).toLocaleString()}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -500,7 +599,7 @@ export default function App() {
                   <input type="datetime-local" value={newAppointment.time} onChange={e => setNewAppointment({...newAppointment, time: e.target.value})} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                   <button type="submit" disabled={isLoading || !(services && services.length)} style={{ padding: '10px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>✅ Book Appointment</button>
                 </form>
-                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}> Search Customers</h3>
+                <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>🔍 Search Customers</h3>
                 <input placeholder="Name or Phone..." value={customerSearch} onChange={e => setCustomerSearch(e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }} />
                 <h3 style={{ marginTop: '1rem', marginBottom: '1rem' }}>Customers ({(customers || []).filter(c => (c.name||'').toLowerCase().includes((customerSearch||'').toLowerCase()) || (c.phone||'').includes(customerSearch||'')).length})</h3>
                 <div style={{ maxHeight: '250px', overflowY: 'auto' }}>
@@ -508,7 +607,7 @@ export default function App() {
                     <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
                       <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{c.name}</strong><div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '2px' }}>{c.phone} {c.gender ? `• ${c.gender}` : ''} {c.age ? `• ${c.age}y` : ''}{c.loyalty_points > 0 && ` • ⭐${c.loyalty_points}`}</div></div>
                       <div style={{ display: 'flex', gap: '6px', marginLeft: 'auto' }}>
-                        {c.loyalty_points > 0 && <button onClick={() => setShowLoyaltyCard(c)} style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.75rem' }}> View Card</button>}
+                        {c.loyalty_points > 0 && <button onClick={() => setShowLoyaltyCard(c)} style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.75rem' }}>🎴 View Card</button>}
                         <button onClick={() => handleEditCustomer(c.id)} style={{ background: '#fff', color: '#d97706', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>✏️ Edit</button>
                         <button onClick={() => handleDeleteCustomer(c.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', fontSize: '0.8rem' }}>🗑️ Delete</button>
                       </div>
@@ -550,7 +649,7 @@ export default function App() {
           {activeTab === 'invoices' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                <h2> Create Invoice</h2>
+                <h2>🧾 Create Invoice</h2>
                 {upcomingBookings.length > 0 && !selectedBooking && (
                   <div style={{ marginBottom: '1rem', padding: '1rem', background: '#f0f9ff', borderRadius: '8px', border: '1px solid #bae6fd' }}>
                     <h3 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#0369a1' }}>📅 Quick Select Booking</h3>
@@ -559,7 +658,7 @@ export default function App() {
                     </div>
                   </div>
                 )}
-                {selectedBooking && (<div style={{ marginBottom: '1rem', padding: '10px', background: '#dcfce7', borderRadius: '8px', border: '1px solid #86efac', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div><strong> Booking:</strong> {selectedBooking.customer_name} - {selectedBooking.service_name}</div><button onClick={clearBookingSelection} style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕ Clear Selection</button></div>)}
+                {selectedBooking && (<div style={{ marginBottom: '1rem', padding: '10px', background: '#dcfce7', borderRadius: '8px', border: '1px solid #86efac', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><div><strong>📅 Booking:</strong> {selectedBooking.customer_name} - {selectedBooking.service_name}</div><button onClick={clearBookingSelection} style={{ padding: '4px 8px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>✕ Clear Selection</button></div>)}
                 <form onSubmit={handleCreateInvoice} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   <div className="form-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.5rem' }}>
                     <div>
@@ -656,7 +755,7 @@ export default function App() {
                       <div><strong style={{ fontSize: '1rem', color: '#0f172a' }}>{s.name}</strong> • LKR {s.price} / {s.duration}m<div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>From: {new Date(s.price_effective_from).toLocaleDateString()}</div></div>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button onClick={() => setEditingService(s)} style={{ background: '#fff', color: '#d97706', border: '1px solid #fbbf24', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>✏️ Edit</button>
-                        <button onClick={() => handleDeleteService(s.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>️ Delete</button>
+                        <button onClick={() => handleDeleteService(s.id)} style={{ background: '#fff', color: '#dc2626', border: '1px solid #f87171', borderRadius: '6px', padding: '4px 12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>🗑️ Delete</button>
                       </div>
                     </div>
                   ))}
@@ -726,7 +825,7 @@ export default function App() {
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <button onClick={() => printLedger('cash')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Cash Report</button>
-                  <button onClick={() => printLedger('bank')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>️ Print Bank Report</button>
+                  <button onClick={() => printLedger('bank')} style={{ padding: '6px 12px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Bank Report</button>
                 </div>
               </div>
               <div className="card-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
@@ -754,10 +853,10 @@ export default function App() {
                   </div>
                 </div>
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
-                  <h2> Bank Ledger</h2>
+                  <h2>🏦 Bank Ledger</h2>
                   <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem', background: '#f8fafc', padding: '10px', borderRadius: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <div style={{ flex: 1 }}><label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Date (Fixed)</label><div style={{ display: 'flex', gap: '6px', marginTop: '4px', alignItems: 'center' }}><input type="date" value={bankOpenDate} onChange={e => setBankOpenDate(e.target.value)} disabled={!isEditingBankOB} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1, opacity: isEditingBankOB ? 1 : 0.7 }} /><button onClick={() => setIsEditingBankOB(!isEditingBankOB)} style={{ padding: '6px', background: isEditingBankOB ? '#dc2626' : '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem' }}>{isEditingBankOB ? '✕ Cancel' : '✏️ Edit'}</button></div></div>
-                    <div style={{ flex: 1 }}><label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Amount</label><div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}><input type="number" step="0.01" value={openingBank || ''} onChange={e => setOpeningBank(parseFloat(e.target.value || '0'))} disabled={!isEditingBankOB} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1, opacity: isEditingBankOB ? 1 : 0.7 }} /><button onClick={() => { if(isEditingBankOB) { setIsEditingBankOB(false); localStorage.setItem('salon_opening_bank', openingBank); alert('💾 Bank opening balance saved!'); } }} style={{ padding: '6px 10px', background: isEditingBankOB ? '#10b981' : '#94a3b8', color: '#fff', border: 'none', borderRadius: '4px', cursor: isEditingBankOB ? 'pointer' : 'default', fontSize: '0.8rem' }} disabled={!isEditingBankOB}> Save</button></div></div>
+                    <div style={{ flex: 1 }}><label style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Opening Amount</label><div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}><input type="number" step="0.01" value={openingBank || ''} onChange={e => setOpeningBank(parseFloat(e.target.value || '0'))} disabled={!isEditingBankOB} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1', flex: 1, opacity: isEditingBankOB ? 1 : 0.7 }} /><button onClick={() => { if(isEditingBankOB) { setIsEditingBankOB(false); localStorage.setItem('salon_opening_bank', openingBank); alert('💾 Bank opening balance saved!'); } }} style={{ padding: '6px 10px', background: isEditingBankOB ? '#10b981' : '#94a3b8', color: '#fff', border: 'none', borderRadius: '4px', cursor: isEditingBankOB ? 'pointer' : 'default', fontSize: '0.8rem' }} disabled={!isEditingBankOB}>💾 Save</button></div></div>
                   </div>
                   <div className="table-wrap" style={{ maxHeight: '400px', overflowY: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', minWidth: '500px' }}>
@@ -785,11 +884,11 @@ export default function App() {
             <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '1.5rem', background: '#fff' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '10px' }}>
                 <h2>📄 Financial Statement</h2>
-                <button onClick={() => window.print()} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>️ Print Statement</button>
+                <button onClick={() => window.print()} style={{ padding: '8px 16px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>🖨️ Print Statement</button>
               </div>
               <div style={{ display: 'grid', gap: '0.8rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span> Revenue</span><strong style={{ color: '#10b981' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn).toFixed(2)}</strong></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span> Materials</span><strong style={{ color: '#dc2626' }}>-LKR {(bills || []).filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📈 Revenue</span><strong style={{ color: '#10b981' }}>LKR {(accountingData.cash.totalIn + accountingData.bank.totalIn).toFixed(2)}</strong></div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>📦 Materials</span><strong style={{ color: '#dc2626' }}>-LKR {(bills || []).filter(b => b.category === 'materials').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', background: '#fff', borderRadius: '6px' }}><span>👷 Labour</span><strong style={{ color: '#dc2626' }}>-LKR {(bills || []).filter(b => b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0).toFixed(2)}</strong></div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px', background: '#f0fdf4', borderRadius: '6px', fontWeight: 'bold' }}><span>💰 Gross Profit</span><strong style={{ color: '#15803d' }}>LKR {((accountingData.cash.totalIn + accountingData.bank.totalIn) - (bills || []).filter(b => b.category === 'materials' || b.category === 'labour').reduce((s,b) => s + Number(b.amount||0), 0)).toFixed(2)}</strong></div>
                 {expenseTypes.filter(t => !['materials','labour'].includes(t)).map(cat => {
@@ -825,7 +924,7 @@ export default function App() {
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button onClick={() => setShowLoyaltyCard(null)} style={{ flex: 1, padding: '10px', background: 'rgba(255,255,255,0.2)', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer' }}>❌ Close</button>
-              <button onClick={() => { redeemLoyalty(showLoyaltyCard.id, Math.min(showLoyaltyCard.loyalty_points || 0, 100)); setShowLoyaltyCard(null); }} style={{ flex: 1, padding: '10px', background: '#fff', color: '#7c3aed', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}> Redeem Points</button>
+              <button onClick={() => { redeemLoyalty(showLoyaltyCard.id, Math.min(showLoyaltyCard.loyalty_points || 0, 100)); setShowLoyaltyCard(null); }} style={{ flex: 1, padding: '10px', background: '#fff', color: '#7c3aed', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600' }}>💰 Redeem Points</button>
             </div>
           </div>
         </div>
